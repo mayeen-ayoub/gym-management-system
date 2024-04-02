@@ -39,9 +39,9 @@ CREATE TABLE Room_Booking (
 );
 
 CREATE TABLE Equipment (
-    id                  SERIAL      PRIMARY KEY,
-    needsMaintenance    BOOLEAN     NOT NULL,
-    lastMaintained      DATE        NOT NULL
+    id                   SERIAL      PRIMARY KEY,
+    needs_maintenance    BOOLEAN     NOT NULL,
+    last_maintained      DATE        NOT NULL
 );
 
 CREATE TABLE Fitness_Goal (
