@@ -1,41 +1,41 @@
 CREATE TABLE Member (
-    id          SERIAL          PRIMARY KEY,
-    firstName   VARCHAR(255)    NOT NULL,
-    lastName    VARCHAR(255)    NOT NULL,
-    email       VARCHAR(255)    UNIQUE NOT NULL,
-    password    VARCHAR(255)    NOT NULL,
-    phoneNumber VARCHAR(15),
-    joinDate    DATE            DEFAULT CURRENT_DATE
+    id           SERIAL          PRIMARY KEY,
+    first_name   VARCHAR(255)    NOT NULL,
+    last_name    VARCHAR(255)    NOT NULL,
+    email        VARCHAR(255)    UNIQUE NOT NULL,
+    password     VARCHAR(255)    NOT NULL,
+    phone_number VARCHAR(15),
+    join_date    DATE            DEFAULT CURRENT_DATE
 );
 
 CREATE TABLE Trainer (
     id          SERIAL          PRIMARY KEY,
-    firstName   VARCHAR(255)    NOT NULL,
-    lastName    VARCHAR(255)    NOT NULL,
+    first_name  VARCHAR(255)    NOT NULL,
+    last_name   VARCHAR(255)    NOT NULL,
     email       VARCHAR(255)    UNIQUE NOT NULL,
     password    VARCHAR(255)    NOT NULL
 );
 
 CREATE TABLE Admin (
     id          SERIAL          PRIMARY KEY,
-    firstName   VARCHAR(255)    NOT NULL,
-    lastName    VARCHAR(255)    NOT NULL,
+    first_name  VARCHAR(255)    NOT NULL,
+    last_name   VARCHAR(255)    NOT NULL,
     email       VARCHAR(255)    UNIQUE NOT NULL,
     password    VARCHAR(255)    NOT NULL
 );
 
-CREATE TABLE ExerciseRoutine (
+CREATE TABLE Exercise_Routine (
     id      SERIAL          PRIMARY KEY,
     routine VARCHAR(255)    NOT NULL
 );
 
-CREATE TABLE RoomBooking (
-    id          SERIAL          PRIMARY KEY,
-    roomNumber  INT             NOT NULL,
-    eventType   VARCHAR(255)    NOT NULL,
-    date        DATE            NOT NULL,
-    startTime   TIME            NOT NULL,
-    endTime     TIME            NOT NULL
+CREATE TABLE Room_Booking (
+    id           SERIAL          PRIMARY KEY,
+    room_number  INT             NOT NULL,
+    event_type   VARCHAR(255)    NOT NULL,
+    date         DATE            NOT NULL,
+    start_time   TIME            NOT NULL,
+    end_time     TIME            NOT NULL
 );
 
 CREATE TABLE Equipment (
@@ -44,96 +44,96 @@ CREATE TABLE Equipment (
     lastMaintained      DATE        NOT NULL
 );
 
-CREATE TABLE FitnessGoal (
-    id              SERIAL          PRIMARY KEY,
-    memberId        INT,
-    targetWeight    INT,
-    targetTime      NUMERIC(3, 1),
-    targetCalories  INT,
-    FOREIGN KEY (memberId) 
+CREATE TABLE Fitness_Goal (
+    id               SERIAL          PRIMARY KEY,
+    member_id        INT,
+    target_weight    INT,
+    target_time      NUMERIC(3, 1),
+    target_calories  INT,
+    FOREIGN KEY (member_id) 
         REFERENCES Member (id)
 );
 
-CREATE TABLE HealthMetrics (
-    id              SERIAL          PRIMARY KEY,
-    memberId        INT,
-    weight          INT,
-    heartRate       INT,
-    caloriesBurned  INT,
-    timeSpentAtGym  NUMERIC(3, 1),
-    date            DATE            DEFAULT CURRENT_DATE,
-    FOREIGN KEY (memberId) 
+CREATE TABLE Health_Metrics (
+    id                  SERIAL          PRIMARY KEY,
+    member_id           INT,
+    weight              INT,
+    heart_rate          INT,
+    calories_burned     INT,
+    time_spent_at_gym   NUMERIC(3, 1),
+    date                DATE            DEFAULT CURRENT_DATE,
+    FOREIGN KEY (member_id) 
         REFERENCES Member (id)
 );
 
 CREATE TABLE Bill (
-    id          SERIAL          PRIMARY KEY,
-    memberId    INT,
-    amount      NUMERIC(5, 2)   NOT NULL,
-    feeType     VARCHAR(255)    NOT NULL,
-    invoiceDate DATE            NOT NULL,
-    paymentDate DATE,
-    FOREIGN KEY (memberId) 
+    id              SERIAL          PRIMARY KEY,
+    member_id       INT,
+    amount          NUMERIC(5, 2)   NOT NULL,
+    fee_type        VARCHAR(255)    NOT NULL,
+    invoice_date    DATE            NOT NULL,
+    payment_date    DATE,
+    FOREIGN KEY (member_id) 
         REFERENCES Member (id)
 );
 
 CREATE TABLE Availability (
-    id          SERIAL      PRIMARY KEY,
-    trainerId   INT,
-    dayOfWeek   VARCHAR(9)  NOT NULL,
-    startTime   TIME        NOT NULL,
-    endTime     TIME        NOT NULL,
-    FOREIGN KEY (trainerId) 
+    id              SERIAL      PRIMARY KEY,
+    trainer_id      INT,
+    day_of_week     VARCHAR(9)  NOT NULL,
+    start_time      TIME        NOT NULL,
+    end_time        TIME        NOT NULL,
+    FOREIGN KEY (trainer_id) 
         REFERENCES Trainer (id)
 );
 
-CREATE TABLE PersonalSession (
-    id          SERIAL  PRIMARY KEY,
-    memberId    INT,
-    trainerId   INT,
-    date        DATE    NOT NULL,
-    startTime   TIME    NOT NULL,
-    endTime     TIME    NOT NULL,
-    FOREIGN KEY (memberId) 
+CREATE TABLE Personal_Session (
+    id           SERIAL  PRIMARY KEY,
+    member_id    INT,
+    trainer_id   INT,
+    date         DATE    NOT NULL,
+    start_time   TIME    NOT NULL,
+    end_time     TIME    NOT NULL,
+    FOREIGN KEY (member_id) 
         REFERENCES Member (id),
-    FOREIGN KEY (trainerId) 
+    FOREIGN KEY (trainer_id) 
         REFERENCES Trainer (id)
 );
 
-CREATE TABLE PersonalSession_ExerciseRoutine (
-    personalSessionId INT,
-    exerciseRoutineId INT,
-    FOREIGN KEY (personalSessionId) 
-        REFERENCES PersonalSession (id),
-    FOREIGN KEY (exerciseRoutineId) 
-        REFERENCES ExerciseRoutine (id)
+CREATE TABLE Personal_Session_Exercise_Routine (
+    personal_session_id INT,
+    exercise_routine_id INT,
+    FOREIGN KEY (personal_session_id) 
+        REFERENCES Personal_Session (id),
+    FOREIGN KEY (exercise_routine_id) 
+        REFERENCES Exercise_Routine (id)
 );
 
-CREATE TABLE GroupSession (
-    id              SERIAL          PRIMARY KEY,
-    roomBookingId   INT,
-    trainerId       INT,
-    title           VARCHAR(255)    NOT NULL,
-    FOREIGN KEY (roomBookingId) 
-        REFERENCES RoomBooking (id),
-    FOREIGN KEY (trainerId) 
+CREATE TABLE Group_Session (
+    id                SERIAL          PRIMARY KEY,
+    room_booking_id   INT,
+    trainer_id        INT,
+    title             VARCHAR(255)    NOT NULL,
+    FOREIGN KEY (room_booking_id) 
+        REFERENCES Room_Booking (id),
+    FOREIGN KEY (trainer_id) 
         REFERENCES Trainer (id)
 );
 
-CREATE TABLE GroupSession_ExerciseRoutine (
-    groupSessionId      INT,
-    exerciseRoutineId   INT,
-    FOREIGN KEY (groupSessionId) 
-        REFERENCES GroupSession (id),
-    FOREIGN KEY (exerciseRoutineId) 
-        REFERENCES ExerciseRoutine (id)
+CREATE TABLE Group_Session_Exercise_Routine (
+    group_session_id      INT,
+    exercise_routine_id   INT,
+    FOREIGN KEY (group_session_id) 
+        REFERENCES Group_Session (id),
+    FOREIGN KEY (exercise_routine_id) 
+        REFERENCES Exercise_Routine (id)
 );
 
-CREATE TABLE Member_GroupSession (
-    memberId        INT,
-    groupSessionId  INT,
-    FOREIGN KEY (memberId) 
+CREATE TABLE Member_Group_Session (
+    member_id        INT,
+    group_session_id  INT,
+    FOREIGN KEY (member_id) 
         REFERENCES Member (id),
-    FOREIGN KEY (groupSessionId) 
-        REFERENCES GroupSession (id)
+    FOREIGN KEY (group_session_id) 
+        REFERENCES Group_Session (id)
 );
