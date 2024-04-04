@@ -1,5 +1,5 @@
 const client = require('./config.js');
-const prompt = require('prompt-sync')();
+const Member = require('./member.js');
 
 // Once the client connects, call the main function
 client.connect(() => {
@@ -7,6 +7,7 @@ client.connect(() => {
 });
 
 async function main() {	
-	console.log("Add code here");
+	const member = new Member(client);
+	await member.register();
 	client.end();
 }
