@@ -28,7 +28,7 @@ INSERT INTO Exercise_Routine (routine) VALUES
 
 INSERT INTO Room_Booking (room_number, event_type, date, start_time, end_time) VALUES
   (163,'Group session','2023-11-11','13:00','14:30'),
-  (144,'Group session.','2023-09-27','15:00','16:00'),
+  (144,'Group session','2023-09-27','15:00','16:00'),
   (178,'Group session','2024-02-25','13:30','14:30'),
   (135,'Birthday party','2023-07-09','14:00','15:30'),
   (155,'Birthday party','2023-04-06','17:00','18:00');

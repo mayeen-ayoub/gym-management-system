@@ -137,3 +137,27 @@ CREATE TABLE Member_Group_Session (
   FOREIGN KEY (group_session_id) 
     REFERENCES Group_Session (id)
 );
+
+CREATE FUNCTION check_booking_conflicts()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS
+$$
+BEGIN
+  IF NOT EXISTS (
+    SELECT * FROM Room_Booking
+    WHERE room_number = NEW.room_number AND date = NEW.date AND start_time <= NEW.end_time AND NEW.start_time <= end_time
+  )
+  THEN 
+    RETURN NEW;
+  ELSE 
+    RAISE EXCEPTION 'Booking information conflicts with an existing room booking.';
+  END IF;
+END;
+$$;
+
+CREATE TRIGGER new_room_booking
+  BEFORE INSERT
+  ON Room_Booking
+  FOR EACH ROW
+  EXECUTE PROCEDURE check_booking_conflicts();
