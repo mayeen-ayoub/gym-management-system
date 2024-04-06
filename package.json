@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cli-table": "^0.3.11",
     "pg": "^8.11.3",
     "prompt-sync": "^4.2.0"
   }
