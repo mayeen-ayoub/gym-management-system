@@ -1,6 +1,7 @@
 const client = require('./config.js');
 const Member = require('./member.js');
 const Trainer = require('./trainer.js');
+const Admin = require('./admin.js');
 
 // Once the client connects, call the main function
 client.connect(() => {
@@ -14,5 +15,7 @@ async function main() {
 	// await trainer.scheduleManagement();
 	// await trainer.viewMemberProfile();
 
+	const admin = new Admin(client);
+	await admin.bookRoom();
 	client.end();
 }
