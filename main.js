@@ -16,6 +16,7 @@ async function main() {
 	// await trainer.viewMemberProfile();
 
 	const admin = new Admin(client);
-	await admin.bookRoom();
+	// await admin.bookRoom();
+	await admin.manageEquipment();
 	client.end();
 }
