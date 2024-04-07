@@ -18,5 +18,6 @@ async function main() {
 	const admin = new Admin(client);
 	// await admin.bookRoom();
 	await admin.manageEquipment();
+	await admin.manageBilling();
 	client.end();
 }
