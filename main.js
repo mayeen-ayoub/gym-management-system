@@ -9,7 +9,8 @@ client.connect(() => {
 });
 
 async function main() {	
-	// const member = new Member(client);
+	const member = new Member(client);
+	await member.dashboardDisplay();
 	// await member.register();
 	// const trainer = new Trainer(client);
 	// await trainer.scheduleManagement();
