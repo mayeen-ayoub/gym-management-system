@@ -10,15 +10,17 @@ client.connect(() => {
 
 async function main() {	
 	const member = new Member(client);
-	await member.dashboardDisplay();
+	// await member.dashboardDisplay();
 	// await member.register();
-	// const trainer = new Trainer(client);
+
+	const trainer = new Trainer(client);
 	// await trainer.scheduleManagement();
 	// await trainer.viewMemberProfile();
+	console.log("Available trainer's id: " + await trainer.findAvailableTrainers('2024-04-07', '13:00', '14:00'));
 
 	const admin = new Admin(client);
 	// await admin.bookRoom();
-	await admin.manageEquipment();
-	await admin.manageBilling();
+	// await admin.manageEquipment();
+	// await admin.manageBilling();
 	client.end();
 }

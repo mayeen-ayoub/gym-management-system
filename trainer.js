@@ -55,6 +55,65 @@ class Trainer {
     }
   }
 
+  async findAvailableTrainers(date, startTime, endTime) {
+    try {
+      const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const formattedDate = new Date(date);
+      let dayOfWeek = weekdays[formattedDate.getDay()].toLowerCase();
+
+      const rawTrainersQuery = `
+        SELECT trainer_id FROM Availability
+        WHERE day_of_week = $1 
+        AND start_time <= $2
+        AND end_time >= $3;
+      `;
+
+      let result = await this.client.query(rawTrainersQuery, [dayOfWeek, startTime, endTime]);
+
+      if (result.rowCount === 0) {
+        return null;
+      }
+
+      const availableTrainerIds = new Set();
+      for (const row of result.rows) {
+        availableTrainerIds.add(row.trainer_id);
+      }
+
+      const personalSessionTrainersQuery = `
+        SELECT trainer_id FROM personal_session
+        WHERE date = $1 
+        AND start_time <= $2 
+        AND $3 <= end_time;
+      `;
+
+      result = await this.client.query(personalSessionTrainersQuery, [date, endTime, startTime]);
+      for (const row of result.rows) {
+        availableTrainerIds.delete(row.trainer_id);
+      }
+
+      const groupSessionTrainersQuery = `
+        SELECT * FROM group_session
+        JOIN room_booking on group_session.room_booking_id = room_booking.id
+        WHERE date = $1 
+        AND start_time <= $2 
+        AND $3 <= end_time;
+      `;
+
+      result = await this.client.query(groupSessionTrainersQuery, [date, endTime, startTime]);
+      for (const row of result.rows) {
+        availableTrainerIds.delete(row.trainer_id);
+      }
+
+      if (availableTrainerIds.size == 0) {
+        return null;
+      }
+      return availableTrainerIds.values().next().value;
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+  }
+
   /* PRIVATE FUNCTIONS */
   async #checkIfTrainer() {
     try {
