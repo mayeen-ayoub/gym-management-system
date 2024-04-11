@@ -11,6 +11,7 @@ client.connect(() => {
 async function main() {	
 	const member = new Member(client);
 	// await member.dashboardDisplay();
+	await member.updateProfile();
 	// await member.register();
 
 	const trainer = new Trainer(client);
@@ -20,6 +21,8 @@ async function main() {
 
 	const admin = new Admin(client);
 	// await admin.bookRoom();
+	// const admin = new Admin(client);
+	// // await admin.bookRoom();
 	// await admin.manageEquipment();
 	// await admin.manageBilling();
 	client.end();
