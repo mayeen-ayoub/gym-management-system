@@ -1,3 +1,5 @@
+// This file contains all of the operations available to trainers
+
 const prompt = require('prompt-sync')();
 const TableDisplay = require('./tableDisplay.js');
 
@@ -8,6 +10,7 @@ class Trainer {
   }
 
   /* PUBLIC FUNCTIONS */
+  // Calls the desired function related to availability management
   async scheduleManagement() {
     const trainerId = await this.#checkIfTrainer();
     if (trainerId !== null) {
@@ -34,6 +37,7 @@ class Trainer {
     }
   }
 
+  // Given first and last names, searches the DB for a member that matches this inputs
   async viewMemberProfile() {
     try {
       if (await this.#checkIfTrainer() !== null) {
@@ -55,12 +59,14 @@ class Trainer {
     }
   }
 
+  // Given a date, start time and end time, find an available trainer
   async findAvailableTrainers(date, startTime, endTime) {
     try {
       const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
       const formattedDate = new Date(date);
       let dayOfWeek = weekdays[formattedDate.getDay()].toLowerCase();
 
+      // Find trainers whose availability aligns with the inputs
       const rawTrainersQuery = `
         SELECT trainer_id FROM Availability
         WHERE day_of_week = $1 
@@ -70,6 +76,7 @@ class Trainer {
 
       let result = await this.client.query(rawTrainersQuery, [dayOfWeek, startTime, endTime]);
 
+      // Return early if no Availabilty records align with the input
       if (result.rowCount === 0) {
         return null;
       }
@@ -79,6 +86,7 @@ class Trainer {
         availableTrainerIds.add(row.trainer_id);
       }
 
+      // Remove any trainers from the above set if they have a conflicting personal session
       const personalSessionTrainersQuery = `
         SELECT trainer_id FROM personal_session
         WHERE date = $1 
@@ -91,6 +99,7 @@ class Trainer {
         availableTrainerIds.delete(row.trainer_id);
       }
 
+      // Remove any trainers from the above set if they have a conflicting group session
       const groupSessionTrainersQuery = `
         SELECT * FROM group_session
         JOIN room_booking on group_session.room_booking_id = room_booking.id
@@ -104,6 +113,7 @@ class Trainer {
         availableTrainerIds.delete(row.trainer_id);
       }
 
+      // If no one is available, return null. Otherwise, return any one of the available trainers
       if (availableTrainerIds.size == 0) {
         return null;
       }
@@ -115,6 +125,9 @@ class Trainer {
   }
 
   /* PRIVATE FUNCTIONS */
+  // Given an email and password, check if this user is an trainer in the DB.
+  // Used by all other functions in this class to ensure trainers are the only ones able to execute trainer-related operations
+  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
   async #checkIfTrainer() {
     try {
       const email = prompt("Enter trainer email: ");
@@ -133,6 +146,7 @@ class Trainer {
     }
   }
 
+  // Adds a record to the Availability table based on user input
   async #insertAvailability(trainerId, weekday) {
     const startTime = prompt('When can you start? (eg. type 1:30 for 1:30am and 13:30 for 1:30pm) ');
     const endTime = prompt('What hour can you end? (eg. type 1:30 for 1:30am and 13:30 for 1:30pm) ');
@@ -144,6 +158,7 @@ class Trainer {
     await this.client.query(insertQuery, [trainerId, weekday.toLowerCase(), startTime, endTime]);
   }
 
+  // Loops through the week and adds records to the Availability table based on when a trainer says they're free
   async #addNewAvailability(trainerId) {
     try {
       const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -166,6 +181,7 @@ class Trainer {
     }
   }
 
+  // Update an existing Availability record based on user input
   async #updateAvailability(trainerId) {
     try {
       await this.#viewAvailabilities(trainerId);
@@ -203,7 +219,7 @@ class Trainer {
     }
   }
 
-
+  // Deletes and Availability record based on user input
   async #deleteAvailability(trainerId) {
     try {
       await this.#viewAvailabilities(trainerId);
@@ -223,6 +239,7 @@ class Trainer {
     }
   }
 
+  // Displays all of a given trainer's Availability records
   async #viewAvailabilities(trainerId) {
     try {
       const allAvailabilities = await this.client.query('SELECT id, day_of_week, start_time, end_time FROM Availability WHERE trainer_id=$1;', [trainerId]);

@@ -1,3 +1,6 @@
+-- This file inserts fake data into the tables created in DDL.sql
+-- Note: Some of the following data was generated using generatedata.com
+
 INSERT INTO Member (first_name, last_name, email, password, phone_number, join_date) VALUES
   ('Colton','Rodgers','colton.rodgers@gmail.ca','SUQU145','626-718-3423','2023-09-04'),
   ('Oprah','Ross','oprah.ross@hotmail.com','YLIF081','886-844-8566','2023-12-31'),

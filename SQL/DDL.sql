@@ -1,3 +1,5 @@
+-- This file creates the necessary tables and triggers for the app
+
 CREATE TABLE Member (
   id           SERIAL          PRIMARY KEY,
   first_name   VARCHAR(255)    NOT NULL,

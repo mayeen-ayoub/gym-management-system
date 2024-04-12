@@ -1,3 +1,5 @@
+// This file contains all of the operations available to administrative staff
+
 const prompt = require('prompt-sync')();
 const TableDisplay = require('./tableDisplay.js');
 const Trainer = require('./trainer.js');
@@ -9,24 +11,8 @@ class Admin {
     this.trainer = new Trainer(this.client);
   }
 
-  async #checkIfAdmin() {
-    try {
-      const email = prompt("Enter admin email: ");
-      const password = prompt("Enter password: ");
-      const dbPasswordResult = await this.client.query('SELECT id, password FROM Admin WHERE email = $1;', [email]);
-      const dbPassword = dbPasswordResult?.rows[0]?.password;
-
-      if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
-        console.log(`Incorrect user or password. Terminating...`);
-        return null;
-      }
-      return dbPasswordResult.rows[0].id;
-    } catch(error) {
-      console.log(`ERROR: ${error.message}\n`);
-      return null;
-    }
-  }
-
+  /* PUBLIC FUNCTIONS */
+  // Given a date, start time and end time, attempts to add a record to the Room_Booking table
   async bookRoom(roomInfo = {}) {
     try {
       let override = Object.keys(roomInfo).length !== 0;
@@ -55,6 +41,7 @@ class Admin {
     }
   }
 
+  // Calls the desired function related to equipment management
   async manageEquipment() {
     try {
       const adminId = await this.#checkIfAdmin();
@@ -86,6 +73,81 @@ class Admin {
     }
   }
 
+  // Calls the desired function related to group session management
+  async scheduleGroupSession() {
+    const adminId = await this.#checkIfAdmin();
+    if (adminId === null) { 
+      return;
+    }
+    console.log("How do you want to manage the group session?");
+    console.log("1. Add a group session");
+    console.log("2. Update a group session");
+    console.log("3. View group sessions");
+    const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+
+    switch (selection) {
+      case 1:
+        await this.#addGroupSession();
+        break;
+      case 2:
+        await this.#updateGroupSession();  
+        break;
+      default:
+        await this.#viewGroupSessions();
+    }
+  }
+
+  // Calls the desired function related to bill management
+  async manageBilling() {
+    const adminId = await this.#checkIfAdmin();
+    if (adminId !== null) {
+      console.log('How do you want modify the invoices?');
+      console.log('1. Add a new invoice');
+      console.log('2. Update a current invoice');
+      console.log('3. Delete an invoice');
+      console.log('4. View invoices');
+      const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+
+      switch (selection) {
+        case 1:
+          await this.#addNewBill();
+          break;
+        case 2:
+          await this.#updateBill();
+          break;
+        case 3:
+          await this.#deleteBill();
+          break;
+        default:
+          await this.#viewBills();
+      }
+    }
+  }
+
+  /* PRIVATE FUNCTIONS */
+
+  // Given an email and password, check if this user is an admin in the DB.
+  // Used by all other functions in this class to ensure admins are the only ones able to execute admin-related operations
+  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
+  async #checkIfAdmin() {
+    try {
+      const email = prompt("Enter admin email: ");
+      const password = prompt("Enter password: ");
+      const dbPasswordResult = await this.client.query('SELECT id, password FROM Admin WHERE email = $1;', [email]);
+      const dbPassword = dbPasswordResult?.rows[0]?.password;
+
+      if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
+        console.log(`Incorrect user or password. Terminating...`);
+        return null;
+      }
+      return dbPasswordResult.rows[0].id;
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return null;
+    }
+  }
+
+  // Displays all Equipment records 
   async #viewEquipment() {
     try {
       const allEquipment = await this.client.query('SELECT * FROM Equipment;');
@@ -97,6 +159,7 @@ class Admin {
     }
   }
 
+  // Adds a record to the Equipment table based on user input
   async #addEquipment() {
     try {
       const needsMaintenanceInput = prompt("Does the machine need maintenance? Y/N: ").toLowerCase();
@@ -115,6 +178,7 @@ class Admin {
     }
   }
 
+  // Updates an existing Equipment record based on user input
   async #updateEquipment() {
     try {
       await this.#viewEquipment();
@@ -156,6 +220,7 @@ class Admin {
     }
   }
 
+  // Deletes an Equipment record based on user input
   async #deleteEquipment() {
     try {
       await this.#viewEquipment();
@@ -178,30 +243,8 @@ class Admin {
       return;
     }
   }
-  
-  async scheduleGroupSession() {
-    const adminId = await this.#checkIfAdmin();
-    if (adminId === null) { 
-      return;
-    }
-    console.log("How do you want to manage the group session?");
-    console.log("1. Add a group session");
-    console.log("2. Update a group session");
-    console.log("3. View group sessions");
-    const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
 
-    switch (selection) {
-      case 1:
-        await this.#addGroupSession();
-        break;
-      case 2:
-        await this.#updateGroupSession();  
-        break;
-      default:
-        await this.#viewGroupSessions();
-    }
-  }
-
+  // Adds a record to the Group_Session, Room_Booking and Exercise_Routines tables based on user input
   async #addGroupSession() {
 		try {
 			const date = prompt("What date do you want the session to be (yyyy-mm-dd)? ");
@@ -209,6 +252,7 @@ class Admin {
 			const endTime = prompt("What time do you want the session to end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
       const title = prompt("What is the title for this group session? ");
 
+      // Attempts to find an available trainer based on user input
 			const trainerId = await this.trainer.findAvailableTrainers(date, startTime, endTime);
 
 			if (trainerId == null) {
@@ -217,6 +261,8 @@ class Admin {
 			}
       
       console.log(`Trainer #${trainerId} will be booked for the group session`);
+
+      // Attempts to book a room based on user input
       const roomBookingId = await this.bookRoom({date, startTime, endTime});
 
       if (roomBookingId == null) {
@@ -224,6 +270,7 @@ class Admin {
 				return;
       }
 
+      // Add a record to Group_Session
 			const insertGroupSessionQuery = `
 				INSERT INTO Group_Session (room_booking_id, trainer_id, title) VALUES ($1, $2, $3) RETURNING id;
 			`;
@@ -231,6 +278,7 @@ class Admin {
 			const groupSession = await this.client.query(insertGroupSessionQuery, [roomBookingId, trainerId, title]);
       const groupSessionId = groupSession?.rows[0]?.id;
 
+      // Add exercise routines to the session
 			console.log("You've successfully created a group session. It's now time to add exercise routines to this session:")
       const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
 			this.tableDisplay.printResultsAsTable(allExerciseRoutines, ['id', 'Routine']);
@@ -251,6 +299,7 @@ class Admin {
     }
 	}
 
+  // Updates the appropriate records in the Group_Session, Room_Booking and Group_Session_Exercise_Routines tables based on user input
   async #updateGroupSession() {
     try {
       await this.#viewGroupSessions();
@@ -283,6 +332,7 @@ class Admin {
 				}
       }
 
+      // Attempts to find an available trainer based on user input
       const trainerId = await this.trainer.findAvailableTrainers(updatables[0], updatables[1], updatables[2]);
 
 			if (trainerId == null) {
@@ -292,6 +342,7 @@ class Admin {
 
       console.log(`The trainer that will be assigned is Trainer #${trainerId}`);
 
+      // Updates the room booking based on user input
       const roomBookingUpdateQuery = `
         UPDATE Room_Booking
         SET date=$1, start_time=$2, end_time=$3, room_number=$4
@@ -301,6 +352,7 @@ class Admin {
       await this.client.query(roomBookingUpdateQuery, [updatables[0],  updatables[1], updatables[2], updatables[4], idSelection]);
       console.log("The room booking has been update successfully.");
 
+      // Updates the session based on user input
       const groupSessionUpdateQuery = `
         UPDATE group_session
         SET trainer_id=$1, title=$2
@@ -308,8 +360,9 @@ class Admin {
       `;
       await this.client.query(groupSessionUpdateQuery, [trainerId,  updatables[3], idSelection]);
       console.log("The group session has been updated successfully.");
-      await this.#viewRoutinesOnGroupSession(idSelection);
       
+      // Updates the exercise routines linked to this session based on user input
+      await this.#viewRoutinesOnGroupSession(idSelection);
       await this.#deleteRoutinesFromGroupSession(idSelection);
       await this.#addRoutinesToGroupSession(idSelection);
 
@@ -320,6 +373,7 @@ class Admin {
     }
   }
 
+  // Given a comma seperated list, adds records to the Group_Session_Exercise_Routine join table
   async #addRoutinesToGroupSession(groupSessionId) {
     try {
       await this.#viewRoutines();
@@ -338,6 +392,7 @@ class Admin {
     }
   }
 
+  // Given a comma seperated list, removes records from the Group_Session_Exercise_Routine join table
   async #deleteRoutinesFromGroupSession(groupSessionId) {
     try {
       const routinesToDelete = prompt("Enter the list of routine ids that you want to DELETE from your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
@@ -355,11 +410,13 @@ class Admin {
     }
   }
 
+  // Displays the available exercise routines
   async #viewRoutines() {
     const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
     this.tableDisplay.printResultsAsTable(allExerciseRoutines, ['id', 'Routine']);
   }
 
+  // Displays the exercise routines linked to a given group session
   async #viewRoutinesOnGroupSession(groupSessionId) {
     const query = `
       SELECT er.id, er.routine FROM group_session_exercise_routine AS gs_er
@@ -370,6 +427,7 @@ class Admin {
     this.tableDisplay.printResultsAsTable(exerciseRoutinesOnGroupSession, ['id', 'Routine']);
   }
 
+  // Displays all group sessions along with their dates, times and trainers
   async #viewGroupSessions() {
     try {
       const groupSessionQuery = `
@@ -386,32 +444,7 @@ class Admin {
     }
   }
 
-  async manageBilling() {
-    const adminId = await this.#checkIfAdmin();
-    if (adminId !== null) {
-      console.log('How do you want modify the invoices?');
-      console.log('1. Add a new invoice');
-      console.log('2. Update a current invoice');
-			console.log('3. Delete an invoice');
-      console.log('4. View invoices');
-      const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
-
-      switch (selection) {
-        case 1:
-          await this.#addNewBill();
-          break;
-        case 2:
-          await this.#updateBill();
-          break;
-        case 3:
-          await this.#deleteBill();
-          break;
-        default:
-          await this.#viewBills();
-      }
-    }
-  }
-
+  // Displays all bills
   async #viewBills() {
     try {
       const allBills = await this.client.query('SELECT * FROM Bill;');
@@ -423,6 +456,7 @@ class Admin {
     }
   }
 
+  // Adds a record to the Bill table based on user input
   async #addNewBill() {
     try {
       const memberIdSelection = await this.#promptMemberId();
@@ -451,6 +485,7 @@ class Admin {
     }
   }
 
+  // Updates a Bill record based on user input
   async #updateBill() {
     try {
       await this.#viewBills();
@@ -504,6 +539,7 @@ class Admin {
     }
   }
 
+  // Deletes a Bill record based on user input
   async #deleteBill() {
     try {
       await this.#viewBills();
@@ -527,6 +563,7 @@ class Admin {
     }
   }
 
+  // Displays all members and prompts the user for a member_id
   async #promptMemberId() {
     const allMembers = await this.client.query('SELECT id, first_name, last_name, email, phone_number, join_date FROM Member;');
     const headers = ['id', 'First Name', 'Last Name', 'Email', 'Phone Number', 'Join Date'];
