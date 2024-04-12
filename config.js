@@ -1,6 +1,6 @@
 const {Client} = require('pg');
 
-// configures the client with the correct details; change these values as needed
+// Configures the client with the correct details; change these values as needed
 const client = new Client({
 	host: "localhost",
 	port: 5432,

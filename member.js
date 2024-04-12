@@ -1,3 +1,5 @@
+// This file contains all of the operations available to members
+
 const prompt = require('prompt-sync')();
 const { SingleBar } = require('cli-progress');
 const TableDisplay = require('./tableDisplay.js');
@@ -11,6 +13,7 @@ class Member {
   }
 
 	/* PUBLIC FUNCTIONS */
+	// Adds records to the Member and Fitness_Goal tables based on user input
 	async register() {
 		try {
 			const firstName = prompt("Enter your first name: ");
@@ -31,6 +34,8 @@ class Member {
 			const memberId = result.rows[0].id;
 
 			console.log(`Welcome ${firstName}! It's now time to set your fitness goals.`);
+			
+			// Add record to Fitness_Goal table
 			let targetWeight = null;
 			let targetTime = null;
 			let targetCalories = null;
@@ -60,7 +65,7 @@ class Member {
 		}
 	}
 	
-	// Updating personal information, fitness goals, health metrics
+	// Calls the desired function related to managing personal information, fitness goals or health metrics
 	async updateProfile() {
 		const memberId = await this.#checkIfMember();
 		if (memberId == null) {
@@ -85,6 +90,7 @@ class Member {
 		}
 	}
 
+	// Calls the necessary helper functions to display a member's dashboard
 	async dashboardDisplay() {
 		try {
 			const memberId = await this.#checkIfMember();
@@ -108,6 +114,7 @@ class Member {
 		}
 	}
 
+	// Calls the desired function related to personal or group session management
 	async scheduleManagement() {
 		const memberId = await this.#checkIfMember();
     if (memberId !== null) {
@@ -124,7 +131,7 @@ class Member {
           await this.#schedulePersonalSession(memberId);
           break;
 				case 2:
-          await this.#scheduleGroupSession(memberId);
+          await this.#joinGroupSession(memberId);
 					break;
 				case 3:
 					await this.#updatePersonalSession(memberId);
@@ -133,12 +140,15 @@ class Member {
 					await this.#cancelPersonalSession(memberId);
 					break;
 				default:
-					await this.#cancelGroupSession(memberId);     
+					await this.#withdrawFromGroupSession(memberId);     
 			}
     }
 	}
 
 	/* PRIVATE FUNCTIONS */
+	// Given an email and password, check if this user is an member in the DB.
+  // Used by all other functions in this class to ensure members are the only ones able to execute member-related operations
+  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
 	async #checkIfMember() {
 		try {
 			const email = prompt("Enter member email: ");
@@ -157,7 +167,7 @@ class Member {
 		}
 	}
 
-	/* UPDATE MEMBER INFO */
+	// Updates the Member record based on user input
 	async #updatePersonalInformation(memberId) {
 		try {
 			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
@@ -166,7 +176,7 @@ class Member {
 			let email = prompt("Enter your updated email: ");
 			let password = prompt("Enter your updated password: ");
       let phoneNumber = prompt("Enter your updated phoneNumber: ");
-			// no modification for join date because that should not be changed by the member
+			// No modification for join date because that should not be changed by the member
 
 			let updatables = [firstName, lastName, email, password, phoneNumber];
 
@@ -180,9 +190,9 @@ class Member {
 				}
       }
 			const updateQuery = `
-			UPDATE member
-			SET first_name=$1, last_name=$2, email=$3, password=$4, phone_number=$5
-			WHERE id=$6;
+				UPDATE member
+				SET first_name=$1, last_name=$2, email=$3, password=$4, phone_number=$5
+				WHERE id=$6;
 			`;
 
 			await this.client.query(updateQuery, [...updatables, memberId]);
@@ -193,7 +203,7 @@ class Member {
 		}
 	}
 
-	// member_id, target_weight, target_time, target_calories
+	// Updates the Fitness_Goal record based on user input
 	async #updateFitnessGoals(memberId) {
 		try {
 			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
@@ -202,7 +212,7 @@ class Member {
       let targetWeight = prompt("Enter your new target weight (in pounds): ").toLowerCase();
 			let targetTime = prompt("Enter your new target time (in hours): ").toLowerCase();
 			let targetCalories = prompt("Enter your new target calories: ").toLowerCase();
-			// no modification for join date because that should not be changed by the member
+
 			let updatables = [targetWeight, targetTime, targetCalories];
 		
 			for (let i = 0; i < updatables.length; i++) {
@@ -221,9 +231,9 @@ class Member {
 			}
 			
 			const updateQuery = `
-			UPDATE fitness_goal
-			SET target_weight=$1, target_time=$2, target_calories=$3
-			WHERE id=$4;
+				UPDATE fitness_goal
+				SET target_weight=$1, target_time=$2, target_calories=$3
+				WHERE id=$4;
 			`;
 
 			await this.client.query(updateQuery, [...updatables, memberId]);
@@ -234,6 +244,7 @@ class Member {
 		}
 	}
 
+	// Calls the desired function related to health metric management
 	async #manageHealthMetrics(memberId) {
 		console.log("What do you change for your health metrics? ");
 		console.log("1. Add a health metric");
@@ -257,6 +268,7 @@ class Member {
 		}
 	}
 
+	// Adds a record to the Health_Metrics table
 	async #addHealthMetric(memberId) {
 		try {
       let recordedWeight = prompt("Enter weight recorded (in pounds): ").toLowerCase();
@@ -276,6 +288,7 @@ class Member {
     }
 	}
 
+	// Updates an existing Health_Metrics record based on user input
 	async #updateHealthMetric(memberId) {
 		try {
       await this.#viewHealthMetrics(memberId);
@@ -318,6 +331,7 @@ class Member {
     }
 	}
 
+	// Deletes a Health_Metrics record based on user inputs
 	async #deleteHealthMetric(memberId) {
 		try {
       await this.#viewHealthMetrics(memberId);
@@ -338,6 +352,7 @@ class Member {
     }
 	}
 
+	// Displays all of a given member's Health_Metrics records
 	async #viewHealthMetrics(memberId) {
 		try {
       const allHealthMetrics = await this.client.query('SELECT id, weight, heart_rate, calories_burned, time_spent_at_gym, date FROM Health_Metrics WHERE member_id=$1;', [memberId]);
@@ -349,7 +364,7 @@ class Member {
     }
 	}
 
-	/* DASHBOARD DISPLAY FUNCTIONS */
+	// Display a given member's health stats (aggregated based on all of their Health_Metrics records)
 	async #healthStatistics(memberId) {
 		try {
 			const query = `
@@ -373,6 +388,7 @@ class Member {
 		}
 	}
 
+	// Display a given member's fitness achievements (aggregate data based on all of their Health_Metrics records is compared with their Fitness_Goal record)
 	async #fitnessAchievements(memberId) {
 		try {
 			const mainStatsQuery = `
@@ -420,7 +436,7 @@ class Member {
 		}
 	}
 
-
+	// Displays all of a given member's completed exercise routines
 	async #exerciseRoutines(memberId) {
 		try {
 			const personalSessionsQuery = `
@@ -439,7 +455,7 @@ class Member {
 				WHERE member_id = $1;
 			`;
 
-			// get the routines a member has done from the personal and group sessions
+			// Get the routines a member has done from the personal and group sessions
 			const personalSessionRoutinesResult = await this.client.query(personalSessionsQuery, [memberId]);
 			const groupSessionRoutinesResult = await this.client.query(groupSessionQuery, [memberId]);
 
@@ -447,14 +463,14 @@ class Member {
 			const personalSessionRoutines = personalSessionRoutinesResult.rowCount === 0 ? [] : personalSessionRoutinesResult.rows;
 			const groupSessionRoutines = groupSessionRoutinesResult.rowCount === 0 ? [] : groupSessionRoutinesResult.rows;
 
-			// combine all the routines together
+			// Combine all the routines together
 			const allRoutines = personalSessionRoutines.concat(groupSessionRoutines);
 
 			if (allRoutines.length === 0) {
 				console.log("You haven't done any exercise routines with our trainers yet! Book a personal or group session!");
 			}
 
-			// find out how many times a member has done a particular routine
+			// Find out how many times a member has done a particular routine
 			const routinesDict = {};
 			allRoutines.forEach(({routine}) => {
 				const lowercaseRoutine = routine.toLowerCase();
@@ -464,7 +480,7 @@ class Member {
 				routinesDict[lowercaseRoutine]++;
 			});
 
-			// print the routines they've done
+			// Print the routines they've done
 			Object.entries(routinesDict).forEach(([key, value]) => {
 				console.log(`You have done the routine "${key}" ${value} times!`);
 			});
@@ -474,6 +490,7 @@ class Member {
 		}
 	}
 	
+	// Uses the SingleBar class from the cli-progress package to visually display a member's progress towards their fitness goals
 	#printProgressBar(current, goal, unit = '', isSwitchGoal = false) {		
 		let progressBar; 
 
@@ -492,7 +509,7 @@ class Member {
 		console.log();
 	}
 
-	/* SCHEDULE MANAGEMENT FUNCTIONS */
+	// Adds records to the Personal_Session and Personal_Session_Exercise_Routine tables based on user input
 	async #schedulePersonalSession(memberId) {
 		try {
 			const date = prompt("What date do you want the session to be (yyyy-mm-dd)? ");
@@ -506,6 +523,7 @@ class Member {
 				return;
 			}
 
+			// Add a record to Personal_Session
 			const insertPersonalSessionQuery = `
 				INSERT INTO Personal_Session (member_id, trainer_id, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id;
 			`;
@@ -513,7 +531,9 @@ class Member {
       const personalSessionId = personalSession?.rows[0]?.id;
 
 			console.log("You've successfully created a personal session. It's now time to add exercise routines to your session:")
-      const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
+      
+      // Add exercise routines to the session
+			const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
 			this.tableDisplay.printResultsAsTable(allExerciseRoutines, ['id', 'Routine']);
 			const routinesToAdd = prompt("Enter the list of routine ids that you want to add to your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
 	
@@ -532,6 +552,7 @@ class Member {
     }
 	}
 
+  // Updates the appropriate records in the Personal_Session and Personal_Session_Exercise_Routines tables based on user input
 	async #updatePersonalSession(memberId) {
 		try {
 			await this.#viewPersonalSessions(memberId);
@@ -559,6 +580,7 @@ class Member {
 				}
 			}
 
+      // Attempts to find an available trainer based on user input
 			const trainerId = await this.trainer.findAvailableTrainers(...updatables);
 
 			if (trainerId == null) {
@@ -566,6 +588,7 @@ class Member {
 				return;
 			}
 
+      // Updates the session based on user input
 			const updateQuery = `
 				UPDATE Personal_Session
 				SET trainer_id=$1, date=$2, start_time=$3, end_time=$4
@@ -577,7 +600,8 @@ class Member {
 
 			const wantsToUpdateRoutines = prompt("Do you want to update the exercise routines associated with this session? Y/N: ").toLowerCase();
       if (wantsToUpdateRoutines === "y") {
-        await this.#viewRoutinesOnPersonalSession(idSelection);
+				// Updates the exercise routines linked to this session based on user input
+				await this.#viewRoutinesOnPersonalSession(idSelection);
 				await this.#deleteRoutinesFromPersonalSession(idSelection);
 				await this.#addRoutinesToPersonalSession(idSelection);
 				console.log("Your routines have successfully been updated.");
@@ -588,6 +612,7 @@ class Member {
 		}
 	}
 
+  // Displays the exercise routines linked to a given personal session
   async #viewRoutinesOnPersonalSession(personalSessionId) {
     const query = `
       SELECT er.id, er.routine FROM Personal_Session_Exercise_Routine AS ps_er
@@ -598,6 +623,7 @@ class Member {
     this.tableDisplay.printResultsAsTable(exerciseRoutinesOnPersonalSession, ['id', 'Routine']);
   }
 
+  // Given a comma seperated list, removes records from the Personal_Session_Exercise_Routine join table
 	async #deleteRoutinesFromPersonalSession(personalSessionId) {
     try {
       const routinesToDelete = prompt("Enter the list of routine ids that you want to DELETE from your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
@@ -615,6 +641,7 @@ class Member {
     }
   }
 
+  // Given a comma seperated list, adds records to the Personal_Session_Exercise_Routine join table
 	async #addRoutinesToPersonalSession(personalSessionId) {
     try {
       const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
@@ -635,6 +662,7 @@ class Member {
     }
   }
 
+	// Deletes a Personal_Session record (and its related records in the Personal_Session_Exercise_Routine join table)
 	async #cancelPersonalSession(memberId) {
 		try {
 			await this.#viewPersonalSessions(memberId);
@@ -662,6 +690,7 @@ class Member {
     }
 	}
 
+	// Displays all of a given member's Personal_Session records
 	async #viewPersonalSessions(memberId) {
 		try {
 			const personalSessionQuery = `
@@ -679,7 +708,8 @@ class Member {
     }
 	}
 
-	async #scheduleGroupSession(memberId) {
+	// Registers a member in an existing group session (ie. Adds a record to the Member_Group_Session join table)
+	async #joinGroupSession(memberId) {
 		try {
 			const groupSessionQuery = `
 				SELECT Group_Session.id, title, date, start_time, end_time FROM Group_Session
@@ -708,7 +738,8 @@ class Member {
     }
 	}
 
-	async #cancelGroupSession(memberId) {
+	// Removes a member from a group session (ie. Deletes the correct record from the Member_Group_Session table)
+	async #withdrawFromGroupSession(memberId) {
 		try {
 			const groupSessionQuery = `
 				SELECT mgs.group_session_id, title, date, start_time, end_time FROM Member_Group_Session AS mgs
