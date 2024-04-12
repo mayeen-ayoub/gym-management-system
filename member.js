@@ -114,7 +114,7 @@ class Member {
       console.log('What would you like to do?');
       console.log('1. Register for a personal session');
       console.log('2. Register for a group session');
-      console.log('3. Reschedule a personal session');
+      console.log('3. Update a personal session');
       console.log('4. Cancel a personal session');
       console.log('5. Withdraw from a group session');
       const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
@@ -127,7 +127,7 @@ class Member {
           await this.#scheduleGroupSession(memberId);
 					break;
 				case 3:
-					await this.#reschedulePersonalSession(memberId);
+					await this.#updatePersonalSession(memberId);
 					break;
 				case 4:
 					await this.#cancelPersonalSession(memberId);
@@ -532,7 +532,7 @@ class Member {
     }
 	}
 
-	async #reschedulePersonalSession(memberId) {
+	async #updatePersonalSession(memberId) {
 		try {
 			await this.#viewPersonalSessions(memberId);
 
@@ -574,11 +574,66 @@ class Member {
 
 			await this.client.query(updateQuery, [trainerId, ...updatables, idSelection]);
 			console.log("Your session has successfully been rescheduled.");
+
+			const wantsToUpdateRoutines = prompt("Do you want to update the exercise routines associated with this session? Y/N: ").toLowerCase();
+      if (wantsToUpdateRoutines === "y") {
+        await this.#viewRoutinesOnPersonalSession(idSelection);
+				await this.#deleteRoutinesFromPersonalSession(idSelection);
+				await this.#addRoutinesToPersonalSession(idSelection);
+				console.log("Your routines have successfully been updated.");
+      }
 		} catch (error) {
 			console.log(`ERROR: ${error.message}\n`);
       return;
 		}
 	}
+
+  async #viewRoutinesOnPersonalSession(personalSessionId) {
+    const query = `
+      SELECT er.id, er.routine FROM Personal_Session_Exercise_Routine AS ps_er
+      JOIN Exercise_Routine AS er ON er.id = ps_er.exercise_routine_id
+      WHERE ps_er.personal_session_id = $1;
+    `;
+    const exerciseRoutinesOnPersonalSession = await this.client.query(query, [personalSessionId]);
+    this.tableDisplay.printResultsAsTable(exerciseRoutinesOnPersonalSession, ['id', 'Routine']);
+  }
+
+	async #deleteRoutinesFromPersonalSession(personalSessionId) {
+    try {
+      const routinesToDelete = prompt("Enter the list of routine ids that you want to DELETE from your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
+
+      const deleteExerciseRoutineQuery = `
+        DELETE FROM Personal_Session_Exercise_Routine WHERE personal_session_id=$1 AND exercise_routine_id=$2;
+      `;
+
+      for (const routineId of routinesToDelete) {
+        await this.client.query(deleteExerciseRoutineQuery, [personalSessionId, routineId]);
+      }
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+  }
+
+	async #addRoutinesToPersonalSession(personalSessionId) {
+    try {
+      const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
+    	this.tableDisplay.printResultsAsTable(allExerciseRoutines, ['id', 'Routine']);
+
+      const routinesToAdd = prompt("Enter the list of routine ids that you want to ADD to your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
+
+      const insertExerciseRoutineQuery = `
+        INSERT INTO Personal_Session_Exercise_Routine (personal_session_id, exercise_routine_id) VALUES ($1, $2);
+      `;
+
+      for (const routineId of routinesToAdd) {
+        await this.client.query(insertExerciseRoutineQuery, [personalSessionId, routineId]);
+      }
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+  }
 
 	async #cancelPersonalSession(memberId) {
 		try {
