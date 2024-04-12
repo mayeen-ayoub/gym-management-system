@@ -1,10 +1,12 @@
 const prompt = require('prompt-sync')();
 const TableDisplay = require('./tableDisplay.js');
+const Trainer = require('./trainer.js');
 
 class Admin {	
   constructor(client) {
     this.client = client;
     this.tableDisplay = new TableDisplay();
+    this.trainer = new Trainer(this.client);
   }
 
   async #checkIfAdmin() {
@@ -25,25 +27,31 @@ class Admin {
     }
   }
 
-  async bookRoom() {
+  async bookRoom(roomInfo = {}) {
     try {
-      const adminId = await this.#checkIfAdmin();
-      if (adminId !== null) {
+      let override = Object.keys(roomInfo).length !== 0;
+      let adminId = null;
+      if (!override) {
+        adminId = await this.#checkIfAdmin();
+      }
+      if (override || adminId !== null) {
         const roomNumber = prompt("Which room would you like to book? ");
-        const eventType = prompt("What kind of event are you booking the room for (group session, birthday party, etc.)? ");
-        const date = prompt("What date are you booking the room for (yyyy-mm-dd)? ");
-        const startTime = prompt("What time does the event start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
-        const endTime = prompt("What time does the event end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+        const eventType = override ? "group session" : prompt("What kind of event are you booking the room for (group session, birthday party, etc.)? ");
+        const date = override ? roomInfo.date : prompt("What date are you booking the room for (yyyy-mm-dd)? ");
+        const startTime = override ? roomInfo.startTime : prompt("What time does the event start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+        const endTime = override ? roomInfo.endTime : prompt("What time does the event end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
 
         const insertQuery = `
-            INSERT INTO Room_Booking (room_number, event_type, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5);
+          INSERT INTO Room_Booking (room_number, event_type, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id;
         `;
-        await this.client.query(insertQuery, [roomNumber, eventType, date, startTime, endTime]);
+        const roomBooked = await this.client.query(insertQuery, [roomNumber, eventType, date, startTime, endTime]);
         console.log("The room booking has been saved.");
+        return roomBooked?.rows[0]?.id;
       }
+      return null;
     } catch(error) {
-      console.log(`ERROR: ${error.message}\n`);
-      return;
+      console.log(`UNSUCCESSFUL: ${error.message}\n`);
+      return null;
     }
   }
 
@@ -165,6 +173,213 @@ class Admin {
 
       await this.client.query(deleteQuery, [idSelection]);
       console.log("The machine has been deleted successfully.");
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+  }
+  
+  async scheduleGroupSession() {
+    const adminId = await this.#checkIfAdmin();
+    if (adminId === null) { 
+      return;
+    }
+    console.log("How do you want to manage the group session?");
+    console.log("1. Add a group session");
+    console.log("2. Update a group session");
+    console.log("3. View group sessions");
+    const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+
+    switch (selection) {
+      case 1:
+        await this.#addGroupSession();
+        break;
+      case 2:
+        await this.#updateGroupSession();  
+        break;
+      default:
+        await this.#viewGroupSessions();
+    }
+  }
+
+  async #addGroupSession() {
+		try {
+			const date = prompt("What date do you want the session to be (yyyy-mm-dd)? ");
+			const startTime = prompt("What time do you want the session to start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+			const endTime = prompt("What time do you want the session to end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+      const title = prompt("What is the title for this group session? ");
+
+			const trainerId = await this.trainer.findAvailableTrainers(date, startTime, endTime);
+
+			if (trainerId == null) {
+				console.log("Sorry, there are no available trainers for that date and time. Terminating request...");
+				return;
+			}
+      
+      console.log(`Trainer #${trainerId} will be booked for the group session`);
+      const roomBookingId = await this.bookRoom({date, startTime, endTime});
+
+      if (roomBookingId == null) {
+        console.log("Sorry, there are no available rooms for that date and time. Terminating request...");
+				return;
+      }
+
+			const insertGroupSessionQuery = `
+				INSERT INTO Group_Session (room_booking_id, trainer_id, title) VALUES ($1, $2, $3) RETURNING id;
+			`;
+
+			const groupSession = await this.client.query(insertGroupSessionQuery, [roomBookingId, trainerId, title]);
+      const groupSessionId = groupSession?.rows[0]?.id;
+
+			console.log("You've successfully created a group session. It's now time to add exercise routines to this session:")
+      const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
+			this.tableDisplay.printResultsAsTable(allExerciseRoutines, ['id', 'Routine']);
+			const routinesToAdd = prompt("Enter the list of routine ids that you want to add to your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
+
+			const insertExerciseRoutineQuery = `
+				INSERT INTO Group_Session_Exercise_Routine (group_session_id, exercise_routine_id) VALUES ($1, $2);
+			`;
+
+			for (const routineId of routinesToAdd) {
+				await this.client.query(insertExerciseRoutineQuery, [groupSessionId, routineId]);
+			}
+
+			console.log("You've successfully added exercise routines to your group session.");
+		} catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+  async #updateGroupSession() {
+    try {
+      await this.#viewGroupSessions();
+
+      const idSelection = parseInt(prompt('Please type the id of the group session you want to modify: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+
+      console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      let date = prompt('Enter the new date (yyyy-mm-dd): ');
+      let startTime = prompt('Enter the new start time (eg. type 1:30 for 1:30am and 13:30 for 1:30pm): ');
+      let endTime = prompt('Enter the new end time (eg. type 1:30 for 1:30am and 13:30 for 1:30pm): ');
+      let title = prompt('Enter the new title for the group session: ');
+      let roomNumber = prompt('Enter the new room number for the group session: ');
+
+      let updatables = [date, startTime, endTime, title, roomNumber];
+      if (!startTime || !endTime || !date || !title || !roomNumber) {
+        const query = `
+          SELECT date, start_time, end_time, title, room_number FROM group_session AS gs
+          JOIN room_booking AS rb ON rb.id = gs.room_booking_id
+          WHERE gs.id = $1;
+        `;
+        const originalDateTime = await this.client.query(query, [idSelection]);
+
+        const dbUpdatables = ["date", "start_time", "end_time", "title", "room_number"];
+				for (let i = 0; i < updatables.length; i++) {
+          updatables[i] = !updatables[i] ? originalDateTime.rows[0][dbUpdatables[i]] : updatables[i];
+				}
+      }
+
+      const trainerId = await this.trainer.findAvailableTrainers(updatables[0], updatables[1], updatables[2]);
+
+			if (trainerId == null) {
+				console.log("Sorry, there are no available trainers for that date and time. Terminating request...");
+				return;
+			}
+
+      console.log(`The trainer that will be assigned is Trainer #${trainerId}`);
+
+      const roomBookingUpdateQuery = `
+        UPDATE Room_Booking
+        SET date=$1, start_time=$2, end_time=$3, room_number=$4
+        WHERE id=$5;
+      `;
+
+      await this.client.query(roomBookingUpdateQuery, [updatables.date,  updatables.startTime, updatables.endTime, updatables.roomNumber, idSelection]);
+      console.log("The room booking has been update successfully.");
+
+      const groupSessionUpdateQuery = `
+        UPDATE group_session
+        SET trainer_id=$1, title=$2
+        WHERE id=$3;
+      `;
+      await this.client.query(groupSessionUpdateQuery, [trainerId,  updatables.title, idSelection]);
+      console.log("The group session has been updated successfully.");
+      await this.#viewRoutinesOnGroupSession(idSelection);
+      
+      await this.#deleteRoutinesFromGroupSession(idSelection);
+      await this.#addRoutinesToGroupSession();
+
+    console.log("You've successfully added exercise routines to your group session.");
+    } catch(error) {
+      console.log(`UNSUCCESSFUL: ${error.message}\n`);
+      return;
+    }
+  }
+
+  async #addRoutinesToGroupSession() {
+    try {
+      this.#viewRoutines();
+      const routinesToAdd = prompt("Enter the list of routine ids that you want to ADD to your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
+
+      const insertExerciseRoutineQuery = `
+        INSERT INTO Group_Session_Exercise_Routine (group_session_id, exercise_routine_id) VALUES ($1, $2);
+      `;
+
+      for (const routineId of routinesToAdd) {
+        await this.client.query(insertExerciseRoutineQuery, [groupSessionId, routineId]);
+      }
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+  }
+
+  async #deleteRoutinesFromGroupSession(groupSessionId) {
+    try {
+      const routinesToDelete = prompt("Enter the list of routine ids that you want to DELETE from your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
+
+      const deleteExerciseRoutineQuery = `
+        DELETE FROM Group_Session_Exercise_Routine WHERE group_session_id=$1 AND exercise_routine_id=$2;
+      `;
+
+      for (const routineId of routinesToDelete) {
+        await this.client.query(deleteExerciseRoutineQuery, [groupSessionId, routineId]);
+      }
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+  }
+
+  async #viewRoutines() {
+    const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
+    this.tableDisplay.printResultsAsTable(allExerciseRoutines, ['id', 'Routine']);
+  }
+
+  async #viewRoutinesOnGroupSession(groupSessionId) {
+    const query = `
+      SELECT er.id, er.routine FROM group_session_exercise_routine AS gs_er
+      JOIN exercise_routine AS er ON er.id = gs_er.exercise_routine_id
+      WHERE gs_er.group_session_id = $1;
+    `;
+    const exerciseRoutinesOnGroupSession = await this.client.query(query, [groupSessionId]);
+    this.tableDisplay.printResultsAsTable(exerciseRoutinesOnGroupSession, ['id', 'Routine']);
+  }
+
+  async #viewGroupSessions() {
+    try {
+      const groupSessionQuery = `
+        SELECT Group_Session.id, title, CONCAT(trainer.first_name, ' ', trainer.last_name) AS trainer_name, room_number, date, start_time, end_time FROM Group_Session
+        JOIN Room_Booking on Group_Session.room_booking_id = Room_Booking.id
+        JOIN trainer on Group_Session.trainer_id = trainer.id;
+			`;
+      const allGroupSessions = await this.client.query(groupSessionQuery);
+      const headers = ['id', 'Title', 'Trainer Name', 'Room Number', 'Date', 'Start Time', 'End Time'];
+      this.tableDisplay.printResultsAsTable(allGroupSessions, headers, true, ['date']);
     } catch(error) {
       console.log(`ERROR: ${error.message}\n`);
       return;
