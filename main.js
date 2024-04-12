@@ -13,11 +13,12 @@ async function main() {
 	// await member.dashboardDisplay();
 	await member.updateProfile();
 	// await member.register();
+	await member.scheduleManagement();
 
 	const trainer = new Trainer(client);
 	// await trainer.scheduleManagement();
 	// await trainer.viewMemberProfile();
-	console.log("Available trainer's id: " + await trainer.findAvailableTrainers('2024-04-07', '13:00', '14:00'));
+	// console.log("Available trainer's id: " + await trainer.findAvailableTrainers('2024-04-07', '13:00', '14:00'));
 
 	const admin = new Admin(client);
 	// await admin.bookRoom();

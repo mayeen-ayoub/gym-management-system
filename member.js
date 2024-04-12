@@ -1,12 +1,13 @@
 const prompt = require('prompt-sync')();
-const Table = require('cli-table');
 const { SingleBar } = require('cli-progress');
 const TableDisplay = require('./tableDisplay.js');
+const Trainer = require('./trainer.js');
 
 class Member {	
   constructor(client) {
 		this.client = client;
 		this.tableDisplay = new TableDisplay();
+		this.trainer = new Trainer(this.client);
   }
 
 	/* PUBLIC FUNCTIONS */
@@ -105,6 +106,36 @@ class Member {
 			console.log(`ERROR: ${error.message}\n`);
 			return;
 		}
+	}
+
+	async scheduleManagement() {
+		const memberId = await this.#checkIfMember();
+    if (memberId !== null) {
+      console.log('What would you like to do?');
+      console.log('1. Register for a personal session');
+      console.log('2. Register for a group session');
+      console.log('3. Reschedule a personal session');
+      console.log('4. Cancel a personal session');
+      console.log('5. Withdraw from a group session');
+      const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+
+      switch (selection) {
+        case 1:
+          await this.#schedulePersonalSession(memberId);
+          break;
+				case 2:
+          await this.#scheduleGroupSession(memberId);
+					break;
+				case 3:
+					await this.#reschedulePersonalSession(memberId);
+					break;
+				case 4:
+					await this.#cancelPersonalSession(memberId);
+					break;
+				default:
+					await this.#cancelGroupSession(memberId);     
+			}
+    }
 	}
 
 	/* PRIVATE FUNCTIONS */
@@ -459,6 +490,199 @@ class Member {
 		}
 		progressBar.stop();
 		console.log();
+	}
+
+	/* SCHEDULE MANAGEMENT FUNCTIONS */
+	async #schedulePersonalSession(memberId) {
+		try {
+			const date = prompt("What date do you want the session to be (yyyy-mm-dd)? ");
+			const startTime = prompt("What time do you want the session to start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+			const endTime = prompt("What time do you want the session to end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+
+			const trainerId = await this.trainer.findAvailableTrainers(date, startTime, endTime);
+
+			if (trainerId == null) {
+				console.log("Sorry, there are no available trainers for that date and time. Terminating request...");
+				return;
+			}
+
+			const insertPersonalSessionQuery = `
+				INSERT INTO Personal_Session (member_id, trainer_id, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id;
+			`;
+			const personalSession = await this.client.query(insertPersonalSessionQuery, [memberId, trainerId, date, startTime, endTime]);
+      const personalSessionId = personalSession?.rows[0]?.id;
+
+			console.log("You've successfully created a personal session. It's now time to add exercise routines to your session:")
+      const allExerciseRoutines = await this.client.query('SELECT * FROM Exercise_Routine');
+			this.tableDisplay.printResultsAsTable(allExerciseRoutines, ['id', 'Routine']);
+			const routinesToAdd = prompt("Enter the list of routine ids that you want to add to your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
+	
+			const insertExerciseRoutineQuery = `
+				INSERT INTO Personal_Session_Exercise_Routine (personal_session_id, exercise_routine_id) VALUES ($1, $2);
+			`;
+
+			for (const routineId of routinesToAdd) {
+				await this.client.query(insertExerciseRoutineQuery, [personalSessionId, routineId]);
+			}
+
+			console.log("You've successfully added exercise routines to your personal session.");
+		} catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+	async #reschedulePersonalSession(memberId) {
+		try {
+			await this.#viewPersonalSessions(memberId);
+
+			const idSelection = parseInt(prompt('Please type the id of the personal session you want to reschedule: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+
+			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+			let date = prompt("What date do you want the session to be (yyyy-mm-dd)? ");
+			let startTime = prompt("What time do you want the session to start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+			let endTime = prompt("What time do you want the session to end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+
+			let updatables = [date, startTime, endTime];
+
+      if (!date || !startTime || !endTime) {
+        const result = await this.client.query('SELECT date, start_time, end_time FROM Personal_Session WHERE id=$1', [idSelection]);
+        const originalSessionInfo = result?.rows[0];
+
+				const dbUpdatables = ["date", "start_time", "end_time"];
+				for (let i = 0; i < updatables.length; i++) {
+					updatables[i] = !updatables[i] ? originalSessionInfo[dbUpdatables[i]] : updatables[i];
+				}
+			}
+
+			const trainerId = await this.trainer.findAvailableTrainers(...updatables);
+
+			if (trainerId == null) {
+				console.log("Sorry, there are no available trainers for that date and time. Terminating request...");
+				return;
+			}
+
+			const updateQuery = `
+				UPDATE Personal_Session
+				SET trainer_id=$1, date=$2, start_time=$3, end_time=$4
+				WHERE id=$5;
+			`;
+
+			await this.client.query(updateQuery, [trainerId, ...updatables, idSelection]);
+			console.log("Your session has successfully been rescheduled.");
+		} catch (error) {
+			console.log(`ERROR: ${error.message}\n`);
+      return;
+		}
+	}
+
+	async #cancelPersonalSession(memberId) {
+		try {
+			await this.#viewPersonalSessions(memberId);
+
+			const idSelection = parseInt(prompt('Please type the id of the personal session you want to cancel: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+
+			const deleteExerciseRoutinesQuery = `
+				DELETE FROM Personal_Session_Exercise_Routine WHERE personal_session_id = $1;
+			`;
+			await this.client.query(deleteExerciseRoutinesQuery, [idSelection]);
+
+			const deletePersonalSessionQuery = `
+				DELETE FROM Personal_Session WHERE id = $1;
+			`;
+			await this.client.query(deletePersonalSessionQuery, [idSelection]);
+
+			console.log("You've successfully cancelled the personal session.");
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+	async #viewPersonalSessions(memberId) {
+		try {
+			const personalSessionQuery = `
+				SELECT id, date, start_time, end_time FROM Personal_Session
+				WHERE member_id = $1
+				ORDER BY date ASC;
+			`;
+
+			const allPersonalSessions = await this.client.query(personalSessionQuery, [memberId]);
+			const headers = ['id', 'Date', 'Start Time', 'End Time'];
+			this.tableDisplay.printResultsAsTable(allPersonalSessions, headers, true, ['date']);
+		} catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+	async #scheduleGroupSession(memberId) {
+		try {
+			const groupSessionQuery = `
+				SELECT Group_Session.id, title, date, start_time, end_time FROM Group_Session
+				JOIN Room_Booking on Group_Session.room_booking_id = Room_Booking.id;
+			`;
+
+      const allGroupSessions = await this.client.query(groupSessionQuery);
+      const headers = ['id', 'Title', 'Date', 'Start Time', 'End Time'];
+      this.tableDisplay.printResultsAsTable(allGroupSessions, headers, true, ['date']);
+
+			const idSelection = parseInt(prompt('Please type the id of the group session you want to join: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+
+			const insertQuery = `
+				INSERT INTO Member_Group_Session (member_id, group_session_id) VALUES ($1, $2);
+			`;
+			await this.client.query(insertQuery, [memberId, idSelection]);
+
+			console.log("You've successfully joined the group session.");
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+	async #cancelGroupSession(memberId) {
+		try {
+			const groupSessionQuery = `
+				SELECT mgs.group_session_id, title, date, start_time, end_time FROM Member_Group_Session AS mgs
+				JOIN Group_Session on mgs.group_session_id = Group_Session.id
+				JOIN Room_Booking on Group_Session.room_booking_id = Room_Booking.id
+				WHERE mgs.member_id = $1
+				ORDER BY date ASC;
+			`;
+
+      const allGroupSessions = await this.client.query(groupSessionQuery, [memberId]);
+      const headers = ['id', 'Title', 'Date', 'Start Time', 'End Time'];
+      this.tableDisplay.printResultsAsTable(allGroupSessions, headers, true, ['date']);
+
+			const idSelection = parseInt(prompt('Please type the id of the group session you want to withdraw from: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+
+			const query = `
+				DELETE FROM Member_Group_Session WHERE member_id = $1 AND group_session_id = $2;
+			`;
+			await this.client.query(query, [memberId, idSelection]);
+
+			console.log("You've successfully withdrawn from the group session.");
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
 	}
 }
 module.exports = Member;
