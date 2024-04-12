@@ -298,7 +298,7 @@ class Admin {
         WHERE id=$5;
       `;
 
-      await this.client.query(roomBookingUpdateQuery, [updatables.date,  updatables.startTime, updatables.endTime, updatables.roomNumber, idSelection]);
+      await this.client.query(roomBookingUpdateQuery, [updatables[0],  updatables[1], updatables[2], updatables[4], idSelection]);
       console.log("The room booking has been update successfully.");
 
       const groupSessionUpdateQuery = `
@@ -306,12 +306,12 @@ class Admin {
         SET trainer_id=$1, title=$2
         WHERE id=$3;
       `;
-      await this.client.query(groupSessionUpdateQuery, [trainerId,  updatables.title, idSelection]);
+      await this.client.query(groupSessionUpdateQuery, [trainerId,  updatables[3], idSelection]);
       console.log("The group session has been updated successfully.");
       await this.#viewRoutinesOnGroupSession(idSelection);
       
       await this.#deleteRoutinesFromGroupSession(idSelection);
-      await this.#addRoutinesToGroupSession();
+      await this.#addRoutinesToGroupSession(idSelection);
 
     console.log("You've successfully added exercise routines to your group session.");
     } catch(error) {
@@ -320,9 +320,9 @@ class Admin {
     }
   }
 
-  async #addRoutinesToGroupSession() {
+  async #addRoutinesToGroupSession(groupSessionId) {
     try {
-      this.#viewRoutines();
+      await this.#viewRoutines();
       const routinesToAdd = prompt("Enter the list of routine ids that you want to ADD to your session, each seperated by a comma (ex. 1, 2, 4): ").split(",").map(Number);
 
       const insertExerciseRoutineQuery = `

@@ -9,11 +9,11 @@ client.connect(() => {
 });
 
 async function main() {	
-	// const member = new Member(client);
+	const member = new Member(client);
 	// await member.dashboardDisplay();
-	await member.updateProfile();
+	// await member.updateProfile();
 	// await member.register();
-	await member.scheduleManagement();
+	// await member.scheduleManagement();
 
 	const trainer = new Trainer(client);
 	// await trainer.scheduleManagement();
