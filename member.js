@@ -58,6 +58,31 @@ class Member {
 			return;
 		}
 	}
+	
+	// Updating personal information, fitness goals, health metrics
+	async updateProfile() {
+		const memberId = await this.#checkIfMember();
+		if (memberId == null) {
+			return;
+		}
+
+		console.log("What do you want to manage?");
+		console.log("1. Personal Information");
+		console.log("2. Fitness Goals");
+		console.log("3. Health Metrics");
+		const selection = parseInt(prompt("Please make your selection: "));
+
+		switch (selection) {
+			case 1:
+				await this.#updatePersonalInformation(memberId);
+				break;
+			case 2:
+				await this.#updateFitnessGoals(memberId);
+				break;
+			default:
+				await this.#manageHealthMetrics(memberId);
+		}
+	}
 
 	async dashboardDisplay() {
 		try {
@@ -99,6 +124,198 @@ class Member {
 			console.log(`ERROR: ${error.message}\n`);
 			return null;
 		}
+	}
+
+	/* UPDATE MEMBER INFO */
+	async #updatePersonalInformation(memberId) {
+		try {
+			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      let firstName = prompt("Enter your updated first name: ");
+			let lastName = prompt("Enter your updated last name: ");
+			let email = prompt("Enter your updated email: ");
+			let password = prompt("Enter your updated password: ");
+      let phoneNumber = prompt("Enter your updated phoneNumber: ");
+			// no modification for join date because that should not be changed by the member
+
+			let updatables = [firstName, lastName, email, password, phoneNumber];
+
+      if (!firstName || !lastName || !email || !password || !phoneNumber) {
+        const result = await this.client.query('SELECT * FROM member WHERE id=$1', [memberId]);
+        const originalMemberInfo = result?.rows[0];
+				
+				const dbUpdatables = ["first_name", "last_name", "email", "password", "phone_number"]
+				for (let i = 0; i < updatables.length; i++) {
+					updatables[i] = !updatables[i] ? originalMemberInfo[dbUpdatables[i]] : updatables[i];
+				}
+      }
+			const updateQuery = `
+			UPDATE member
+			SET first_name=$1, last_name=$2, email=$3, password=$4, phone_number=$5
+			WHERE id=$6;
+			`;
+
+			await this.client.query(updateQuery, [...updatables, memberId]);
+			console.log("Your information has been updated successfully!");
+		} catch(error) {
+			console.log(`ERROR: ${error.message}\n`);
+			return;
+		}
+	}
+
+	// member_id, target_weight, target_time, target_calories
+	async #updateFitnessGoals(memberId) {
+		try {
+			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+			console.log('If you want to erase a goal please type "None"');
+
+      let targetWeight = prompt("Enter your new target weight (in pounds): ").toLowerCase();
+			let targetTime = prompt("Enter your new target time (in hours): ").toLowerCase();
+			let targetCalories = prompt("Enter your new target calories: ").toLowerCase();
+			// no modification for join date because that should not be changed by the member
+			let updatables = [targetWeight, targetTime, targetCalories];
+		
+			for (let i = 0; i < updatables.length; i++) {
+				if (updatables[i] === "none") {
+					updatables[i] = null;
+				}
+			}
+
+			if (!targetWeight || !targetTime || !targetCalories) {
+        const result = await this.client.query('SELECT * FROM fitness_goal WHERE id=$1', [memberId]);
+        const originalFitnessGoals = result?.rows[0];
+				const dbUpdatables = ['target_weight', 'target_time', 'target_calories'];
+				for (let i = 0; i < updatables.length; i++) {
+					updatables[i] = updatables[i] === '' ? originalFitnessGoals[dbUpdatables[i]] : updatables[i];
+				}
+			}
+			
+			const updateQuery = `
+			UPDATE fitness_goal
+			SET target_weight=$1, target_time=$2, target_calories=$3
+			WHERE id=$4;
+			`;
+
+			await this.client.query(updateQuery, [...updatables, memberId]);
+			console.log("Your fitness goals have been updated successfully!");
+		} catch(error) {
+			console.log(`ERROR: ${error.message}\n`);
+			return;
+		}
+	}
+
+	async #manageHealthMetrics(memberId) {
+		console.log("What do you change for your health metrics? ");
+		console.log("1. Add a health metric");
+		console.log("2. Update a health metric");
+		console.log("3. Delete a health metric");
+		console.log("4. View your health metrics");
+		const selection = parseInt(prompt("Please make your selection: "));
+
+		switch (selection) {
+			case 1:
+				await this.#addHealthMetric(memberId);
+				break;
+			case 2:
+				await this.#updateHealthMetric(memberId);
+				break;
+			case 3:
+				await this.#deleteHealthMetric(memberId);	
+				break;
+			default:
+				await this.#viewHealthMetrics(memberId);
+		}
+	}
+
+	async #addHealthMetric(memberId) {
+		try {
+      let recordedWeight = prompt("Enter weight recorded (in pounds): ").toLowerCase();
+      let heartRate = prompt("Enter your average heart rate for this session (in beats per minute): ");
+      let caloriesBurned = prompt("Enter calories burned: ");
+			let timeSpentAtGym = prompt("Enter time spent at gym: ");
+			let date = prompt("Enter the date (yyyy-mm-dd): ");
+			const insertQuery = `
+				INSERT INTO health_metrics (member_id, weight, heart_rate, calories_burned, time_spent_at_gym, date) VALUES ($1, $2, $3, $4, $5, $6);
+			`;
+
+		await this.client.query(insertQuery, [memberId, recordedWeight, heartRate, caloriesBurned, timeSpentAtGym, date]);
+		console.log("The health metric has been added successfully.");
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+	async #updateHealthMetric(memberId) {
+		try {
+      await this.#viewHealthMetrics(memberId);
+
+      const idSelection = parseInt(prompt('Please type the id of the health metric you want to modify: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+      
+      console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      let recordedWeight = prompt("Enter new weight recorded (in pounds): ").toLowerCase();
+      let heartRate = prompt("Enter new average heart rate for this session (in beats per minute): ");
+      let caloriesBurned = prompt("Enter new calories burned: ");
+			let timeSpentAtGym = prompt("Enter new time spent at gym: ");
+			let date = prompt("Enter new date (yyyy-mm-dd): ");
+			let updatables = [recordedWeight, heartRate, caloriesBurned, timeSpentAtGym, date];
+
+      if (!recordedWeight || !heartRate || !caloriesBurned || !timeSpentAtGym || !date) {
+        const result = await this.client.query('SELECT * FROM health_metrics WHERE id=$1', [idSelection]);
+        const originalHealthMetric = result?.rows[0];
+				const dbUpdatables = ['weight', 'heart_rate', 'calories_burned', 'time_spent_at_gym', 'date'];
+				for (let i = 0; i < updatables.length; i++) {
+					updatables[i] = !updatables[i] ? originalHealthMetric[dbUpdatables[i]] : updatables[i];
+				}
+      }
+
+      const updateQuery = `
+        UPDATE health_metrics
+        SET weight=$1, heart_rate=$2, calories_burned=$3, time_spent_at_gym=$4, date=$5
+        WHERE id=$6 AND member_id=$7;
+      `;
+
+      await this.client.query(updateQuery, [...updatables, idSelection, memberId]);
+			console.log("The health metric has been updated successfully.");
+
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+	async #deleteHealthMetric(memberId) {
+		try {
+      await this.#viewHealthMetrics(memberId);
+      
+      const idSelection = parseInt(prompt('Please type the id of the health metric you want to delete: '));
+
+      const deleteQuery = `
+        DELETE FROM health_metrics
+        WHERE id=$1;
+      `;
+
+      await this.client.query(deleteQuery, [idSelection]);
+			console.log("The health metric has been deleted successfully.");
+
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
+	}
+
+	async #viewHealthMetrics(memberId) {
+		try {
+      const allHealthMetrics = await this.client.query('SELECT id, weight, heart_rate, calories_burned, time_spent_at_gym, date FROM Health_Metrics WHERE member_id=$1;', [memberId]);
+      const headers = ['id', 'Weight Recorded', 'Heart Rate', 'Calories Burned', 'Time Spent at the Gym', 'Date'];
+      this.tableDisplay.printResultsAsTable(allHealthMetrics, headers, true, ['date']);
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return;
+    }
 	}
 
 	/* DASHBOARD DISPLAY FUNCTIONS */
