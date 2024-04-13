@@ -80,7 +80,6 @@ INSERT INTO Personal_Session_Exercise_Routine (personal_session_id, exercise_rou
   (1, 1),
   (1, 2),
   (2, 1),
-  (2, 1),
   (3, 4);
 
 INSERT INTO Group_Session (room_booking_id, trainer_id, title) VALUES
@@ -97,7 +96,6 @@ INSERT INTO Group_Session_Exercise_Routine (group_session_id, exercise_routine_i
 
 INSERT INTO Member_Group_Session (member_id, group_session_id) VALUES
   (1, 1),
-  (2, 1),
   (2, 1),
   (1, 2),
   (5, 2);

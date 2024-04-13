@@ -108,7 +108,8 @@ CREATE TABLE Personal_Session_Exercise_Routine (
   FOREIGN KEY (personal_session_id) 
     REFERENCES Personal_Session (id),
   FOREIGN KEY (exercise_routine_id) 
-    REFERENCES Exercise_Routine (id)
+    REFERENCES Exercise_Routine (id),
+  PRIMARY KEY (personal_session_id, exercise_routine_id)
 );
 
 CREATE TABLE Group_Session (
@@ -128,7 +129,8 @@ CREATE TABLE Group_Session_Exercise_Routine (
   FOREIGN KEY (group_session_id) 
     REFERENCES Group_Session (id),
   FOREIGN KEY (exercise_routine_id) 
-    REFERENCES Exercise_Routine (id)
+    REFERENCES Exercise_Routine (id),
+  PRIMARY KEY (group_session_id, exercise_routine_id)
 );
 
 CREATE TABLE Member_Group_Session (
@@ -137,7 +139,8 @@ CREATE TABLE Member_Group_Session (
   FOREIGN KEY (member_id) 
     REFERENCES Member (id),
   FOREIGN KEY (group_session_id) 
-    REFERENCES Group_Session (id)
+    REFERENCES Group_Session (id),
+  PRIMARY KEY (member_id, group_session_id)
 );
 
 CREATE FUNCTION check_booking_conflicts()
