@@ -163,3 +163,16 @@ CREATE TRIGGER new_room_booking
   ON Room_Booking
   FOR EACH ROW
   EXECUTE PROCEDURE check_booking_conflicts();
+
+CREATE VIEW health_statistics AS
+  SELECT member_id, ROUND(AVG(heart_rate), 2) AS average_heart_rate, SUM(calories_burned) AS total_calories_burned, SUM(time_spent_at_gym) AS total_time_spent_at_gym, COUNT(date) AS num_gym_sessions
+  FROM health_metrics
+  GROUP BY member_id;
+
+CREATE VIEW combined_routines_personal_session AS
+  SELECT er.id, er.routine, ps_er.personal_session_id FROM Personal_Session_Exercise_Routine AS ps_er
+  JOIN Exercise_Routine AS er ON er.id = ps_er.exercise_routine_id;
+
+CREATE VIEW combined_routines_group_session AS
+  SELECT er.id, er.routine, gs_er.group_session_id FROM Group_Session_Exercise_Routine AS gs_er
+  JOIN Exercise_Routine AS er ON er.id = gs_er.exercise_routine_id;
