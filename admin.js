@@ -45,7 +45,7 @@ class Admin {
         
     switch (selection) {
       case 1:
-        await this.bookRoom();
+        await this.#bookRoom();
         break;
       case 2:
         await this.#updateRoomBooking();
@@ -59,7 +59,7 @@ class Admin {
   }
 
   // Given a date, start time and end time, attempts to add a record to the Room_Booking table
-  async bookRoom(roomInfo = {}) {
+  async #bookRoom(roomInfo = {}) {
     try {
       let override = Object.keys(roomInfo).length !== 0;
       const roomNumber = prompt("Which room would you like to book? ");
@@ -363,7 +363,7 @@ class Admin {
       console.log(`Trainer #${trainerId} will be booked for the group session`);
 
       // Attempts to book a room based on user input
-      const roomBookingId = await this.bookRoom({date, startTime, endTime});
+      const roomBookingId = await this.#bookRoom({date, startTime, endTime});
 
       if (roomBookingId == null) {
         console.log("Sorry, there are no available rooms for that date and time. Terminating request...");
