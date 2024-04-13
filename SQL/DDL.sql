@@ -159,7 +159,7 @@ END;
 $$;
 
 CREATE TRIGGER new_room_booking
-  BEFORE INSERT
+  BEFORE INSERT OR UPDATE
   ON Room_Booking
   FOR EACH ROW
   EXECUTE PROCEDURE check_booking_conflicts();

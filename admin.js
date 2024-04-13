@@ -3,6 +3,7 @@
 const prompt = require('prompt-sync')();
 const TableDisplay = require('./tableDisplay.js');
 const Trainer = require('./trainer.js');
+const chalk = require('chalk');
 
 class Admin {	
   constructor(client) {
@@ -12,6 +13,31 @@ class Admin {
   }
 
   /* PUBLIC FUNCTIONS */
+  // TODO call this function from main
+  // Calls the desired function related to room booking
+  async manageRoomBookings() {
+    console.log("What action would you like to take?");
+    console.log('1. Add a new room booking');
+    console.log('2. Update a room booking');
+    console.log('3. Delete a room booking');
+    console.log('4. View room bookings'); 
+    const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+        
+    switch (selection) {
+      case 1:
+        await this.bookRoom();
+        break;
+      case 2:
+        await this.#updateRoomBooking();
+        break;
+      case 3:
+        await this.#deleteRoomBooking()
+        break;
+      default:
+        await this.#viewRoomBookings();
+    }
+
+  }
   // Given a date, start time and end time, attempts to add a record to the Room_Booking table
   async bookRoom(roomInfo = {}) {
     try {
@@ -22,7 +48,7 @@ class Admin {
       }
       if (override || adminId !== null) {
         const roomNumber = prompt("Which room would you like to book? ");
-        const eventType = override ? "group session" : prompt("What kind of event are you booking the room for (group session, birthday party, etc.)? ");
+        const eventType = override ? "Group Session" : prompt("What kind of event are you booking the room for (group session, birthday party, etc.)? ");
         const date = override ? roomInfo.date : prompt("What date are you booking the room for (yyyy-mm-dd)? ");
         const startTime = override ? roomInfo.startTime : prompt("What time does the event start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
         const endTime = override ? roomInfo.endTime : prompt("What time does the event end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
@@ -144,6 +170,96 @@ class Admin {
     } catch(error) {
       console.log(`ERROR: ${error.message}\n`);
       return null;
+    }
+  }
+
+  // Updates an existing Room_booking record based on user input
+  async #updateRoomBooking() {
+    try {
+      await this.#viewRoomBookings();
+      const idSelection = parseInt(prompt('Please type the id of the invoice you want to modify: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+      console.log();
+
+      const roomResult = await this.client.query('SELECT * FROM room_booking WHERE id=$1', [idSelection]);
+
+      if (roomResult.rowCount > 0 && roomResult.rows[0].event_type.toLowerCase() !== "group session") {
+        console.log(chalk.yellow('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
+        const roomNumber = prompt("Enter new room number: ");
+        const eventType = prompt("Enter new event type: ");
+        const date = prompt("Enter new date (yyyy-mm-dd): ");
+        const startTime = prompt("Enter new event start time (eg. type 1:30 for 1:30am and 13:30 for 1:30pm): ");
+        const endTime = prompt("Enter new event end time (eg. type 1:30 for 1:30am and 13:30 for 1:30pm): ");
+
+        let updatables = [roomNumber, eventType, date, startTime, endTime];
+
+        const originalRoomBookingInfo = roomResult?.rows[0];
+				
+				const dbUpdatables = ["room_number", "event_type", "date", "start_time", "end_time"]
+				for (let i = 0; i < updatables.length; i++) {
+					updatables[i] = !updatables[i] ? originalRoomBookingInfo[dbUpdatables[i]] : updatables[i];
+				}
+
+        const updateQuery = `
+          UPDATE room_booking
+          SET room_number=$1, event_type=$2, date=$3, start_time=$4, end_time=$5
+          WHERE id=$6;
+        `;
+
+        await this.client.query(updateQuery, [...updatables, idSelection]);
+        console.log("The room booking has been succesfully updated.");
+      } else {
+        console.log("This type of action can be done through managing a group session.");
+      }
+    } catch(error) {
+      console.log(`UNSUCCESSFUL: ${error.message}\n`);
+      return;
+    }
+  }
+
+  // Deletes a Room_Booking record based on user input
+  async #deleteRoomBooking() {
+    try {
+      await this.#viewRoomBookings();
+
+      const idSelection = parseInt(prompt('Please type the id of the room booking you want to delete: '));
+      if (!idSelection) {
+        console.log("No valid id was entered. Terminating request...");
+        return;
+      }
+      console.log();
+
+      const roomResult = await this.client.query('SELECT event_type FROM room_booking WHERE id=$1', [idSelection]);
+
+      if (roomResult.rowCount > 0 && roomResult.rows[0].event_type.toLowerCase() !== "group session") {
+        const deleteQuery = `
+          DELETE FROM room_booking
+          WHERE id=$1;
+        `;
+
+        await this.client.query(deleteQuery, [idSelection]);
+        console.log("The room booking has been deleted successfully.");
+      } else {
+        console.log("This type of action can be done through managing a group session.");
+      }
+    } catch(error) {
+      console.log(`UNSUCCESSFUL: ${error.message}\n`);
+      return;
+    }
+  }
+
+  // Displays all Room_Booking records 
+  async #viewRoomBookings() {
+    try {
+        const roomResult = await this.client.query('SELECT * FROM Room_booking;');
+        const headers = ['id', 'Room Number', 'Event Type', 'Date', 'Start Time', 'End Time'];
+        this.tableDisplay.printResultsAsTable(roomResult, headers, true, ['date']);
+    } catch(error) {
+      console.log(`UNSUCCESSFUL: ${error.message}\n`);
+      return;
     }
   }
 
