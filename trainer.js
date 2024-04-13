@@ -160,7 +160,7 @@ class Trainer {
     try {
       const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
       for (let weekday of weekdays) {
-        const workingResponse = prompt(`Are you free on ${weekday}? (Y/N)`).toLowerCase();
+        const workingResponse = prompt(`Are you free on ${weekday}? (Y/N) `).toLowerCase();
         if (workingResponse === "y") {
           await this.#insertAvailability(trainerId, weekday);
           let anotherAvailablity; 
