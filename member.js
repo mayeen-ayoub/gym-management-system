@@ -4,6 +4,7 @@ const prompt = require('prompt-sync')();
 const { SingleBar } = require('cli-progress');
 const TableDisplay = require('./tableDisplay.js');
 const Trainer = require('./trainer.js');
+const chalk = require('chalk');
 
 class Member {	
   constructor(client) {
@@ -13,6 +14,27 @@ class Member {
   }
 
 	/* PUBLIC FUNCTIONS */
+	// Given an email and password, check if this user is an member in the DB.
+  // Used by all other functions in this class to ensure members are the only ones able to execute member-related operations
+  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
+	async checkIfMember() {
+		try {
+			const email = prompt("Enter member email: ");
+			const password = prompt("Enter password: ");
+			const dbPasswordResult = await this.client.query('SELECT id, password FROM Member WHERE email = $1;', [email]);
+			const dbPassword = dbPasswordResult?.rows[0]?.password;
+
+			if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
+					console.log(`Incorrect password. Terminating...`);
+					return null;
+			}
+			return dbPasswordResult.rows[0].id;
+		} catch(error) {
+			console.log(`ERROR: ${error.message}\n`);
+			return null;
+		}
+	}
+
 	// Adds records to the Member and Fitness_Goal tables based on user input
 	async register() {
 		try {
@@ -66,17 +88,13 @@ class Member {
 	}
 	
 	// Calls the desired function related to managing personal information, fitness goals or health metrics
-	async updateProfile() {
-		const memberId = await this.#checkIfMember();
-		if (memberId == null) {
-			return;
-		}
-
+	async updateProfile(memberId) {
 		console.log("What do you want to manage?");
 		console.log("1. Personal Information");
 		console.log("2. Fitness Goals");
 		console.log("3. Health Metrics");
 		const selection = parseInt(prompt("Please make your selection: "));
+		console.log();
 
 		switch (selection) {
 			case 1:
@@ -91,20 +109,15 @@ class Member {
 	}
 
 	// Calls the necessary helper functions to display a member's dashboard
-	async dashboardDisplay() {
+	async dashboardDisplay(memberId) {
 		try {
-			const memberId = await this.#checkIfMember();
-			if (memberId == null) {
-				return;
-			}
-
-			console.log('===== HEALTH STATISTICS ====');
+			console.log(chalk.blue('===== HEALTH STATISTICS ===='));
 			await this.#healthStatistics(memberId);
 
-			console.log('===== FITNESS ACHIEVMENTS ====');
+			console.log(chalk.blue('===== FITNESS ACHIEVMENTS ===='));
 			await this.#fitnessAchievements(memberId);
 
-			console.log('===== ALL EXERCISE ROUTINES ====');
+			console.log(chalk.blue('===== ALL EXERCISE ROUTINES ===='));
 			await this.#exerciseRoutines(memberId);
 			
 
@@ -115,62 +128,38 @@ class Member {
 	}
 
 	// Calls the desired function related to personal or group session management
-	async scheduleManagement() {
-		const memberId = await this.#checkIfMember();
-    if (memberId !== null) {
-      console.log('What would you like to do?');
-      console.log('1. Register for a personal session');
-      console.log('2. Register for a group session');
-      console.log('3. Update a personal session');
-      console.log('4. Cancel a personal session');
-      console.log('5. Withdraw from a group session');
-      const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+	async scheduleManagement(memberId) {
+		console.log('What would you like to do?');
+		console.log('1. Register for a personal session');
+		console.log('2. Register for a group session');
+		console.log('3. Update a personal session');
+		console.log('4. Cancel a personal session');
+		console.log('5. Withdraw from a group session');
+		const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
 
-      switch (selection) {
-        case 1:
-          await this.#schedulePersonalSession(memberId);
-          break;
-				case 2:
-          await this.#joinGroupSession(memberId);
-					break;
-				case 3:
-					await this.#updatePersonalSession(memberId);
-					break;
-				case 4:
-					await this.#cancelPersonalSession(memberId);
-					break;
-				default:
-					await this.#withdrawFromGroupSession(memberId);     
-			}
-    }
-	}
-
-	/* PRIVATE FUNCTIONS */
-	// Given an email and password, check if this user is an member in the DB.
-  // Used by all other functions in this class to ensure members are the only ones able to execute member-related operations
-  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
-	async #checkIfMember() {
-		try {
-			const email = prompt("Enter member email: ");
-			const password = prompt("Enter password: ");
-			const dbPasswordResult = await this.client.query('SELECT id, password FROM Member WHERE email = $1;', [email]);
-			const dbPassword = dbPasswordResult?.rows[0]?.password;
-
-			if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
-					console.log(`Incorrect password. Terminating...`);
-					return null;
-			}
-			return dbPasswordResult.rows[0].id;
-		} catch(error) {
-			console.log(`ERROR: ${error.message}\n`);
-			return null;
+		switch (selection) {
+			case 1:
+				await this.#schedulePersonalSession(memberId);
+				break;
+			case 2:
+				await this.#joinGroupSession(memberId);
+				break;
+			case 3:
+				await this.#updatePersonalSession(memberId);
+				break;
+			case 4:
+				await this.#cancelPersonalSession(memberId);
+				break;
+			default:
+				await this.#withdrawFromGroupSession(memberId);     
 		}
 	}
 
+	/* PRIVATE FUNCTIONS */
 	// Updates the Member record based on user input
 	async #updatePersonalInformation(memberId) {
 		try {
-			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+			console.log(chalk.blue('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
       let firstName = prompt("Enter your updated first name: ");
 			let lastName = prompt("Enter your updated last name: ");
 			let email = prompt("Enter your updated email: ");
@@ -206,8 +195,8 @@ class Member {
 	// Updates the Fitness_Goal record based on user input
 	async #updateFitnessGoals(memberId) {
 		try {
-			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
-			console.log('If you want to erase a goal please type "None"');
+			console.log(chalk.blue('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
+			console.log(chalk.blue('If you want to erase a goal please type "None"'));
 
       let targetWeight = prompt("Enter your new target weight (in pounds): ").toLowerCase();
 			let targetTime = prompt("Enter your new target time (in hours): ").toLowerCase();
@@ -252,6 +241,7 @@ class Member {
 		console.log("3. Delete a health metric");
 		console.log("4. View your health metrics");
 		const selection = parseInt(prompt("Please make your selection: "));
+		console.log();
 
 		switch (selection) {
 			case 1:
@@ -298,8 +288,9 @@ class Member {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+			console.log();
       
-      console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      console.log(chalk.blue('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
       let recordedWeight = prompt("Enter new weight recorded (in pounds): ").toLowerCase();
       let heartRate = prompt("Enter new average heart rate for this session (in beats per minute): ");
       let caloriesBurned = prompt("Enter new calories burned: ");
@@ -337,6 +328,7 @@ class Member {
       await this.#viewHealthMetrics(memberId);
       
       const idSelection = parseInt(prompt('Please type the id of the health metric you want to delete: '));
+			console.log();
 
       const deleteQuery = `
         DELETE FROM health_metrics
@@ -562,8 +554,9 @@ class Member {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+			console.log();
 
-			console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+			console.log(chalk.blue('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
 			let date = prompt("What date do you want the session to be (yyyy-mm-dd)? ");
 			let startTime = prompt("What time do you want the session to start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
 			let endTime = prompt("What time do you want the session to end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
@@ -672,6 +665,7 @@ class Member {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+			console.log();
 
 			const deleteExerciseRoutinesQuery = `
 				DELETE FROM Personal_Session_Exercise_Routine WHERE personal_session_id = $1;
@@ -725,6 +719,7 @@ class Member {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+			console.log();
 
 			const insertQuery = `
 				INSERT INTO Member_Group_Session (member_id, group_session_id) VALUES ($1, $2);
@@ -758,6 +753,7 @@ class Member {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+			console.log();
 
 			const query = `
 				DELETE FROM Member_Group_Session WHERE member_id = $1 AND group_session_id = $2;
