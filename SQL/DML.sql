@@ -68,7 +68,7 @@ INSERT INTO Availability (trainer_id, day_of_week, start_time, end_time) VALUES
   (1,'monday','13:00','16:00'),
   (2,'monday','9:00','17:00'),
   (3,'tuesday','12:30','14:30'),
-  (4,'friday','18:00','22:30'),
+  (4,'friday','13:00','22:30'),
   (5,'saturday','7:30','16:00');
 
 INSERT INTO Personal_Session (member_id, trainer_id, date, start_time, end_time) VALUES
