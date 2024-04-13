@@ -535,9 +535,8 @@ class Admin {
   // Displays the exercise routines linked to a given group session
   async #viewRoutinesOnGroupSession(groupSessionId) {
     const query = `
-      SELECT er.id, er.routine FROM group_session_exercise_routine AS gs_er
-      JOIN exercise_routine AS er ON er.id = gs_er.exercise_routine_id
-      WHERE gs_er.group_session_id = $1;
+      SELECT id, routine FROM combined_routines_group_session
+      WHERE group_session_id = $1;
     `;
     const exerciseRoutinesOnGroupSession = await this.client.query(query, [groupSessionId]);
     this.tableDisplay.printResultsAsTable(exerciseRoutinesOnGroupSession, ['id', 'Routine']);

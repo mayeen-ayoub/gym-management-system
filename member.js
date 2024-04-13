@@ -106,8 +106,6 @@ class Member {
 
 			console.log('===== ALL EXERCISE ROUTINES ====');
 			await this.#exerciseRoutines(memberId);
-			
-
 		} catch(error) {
 			console.log(`ERROR: ${error.message}\n`);
 			return;
@@ -368,10 +366,7 @@ class Member {
 	async #healthStatistics(memberId) {
 		try {
 			const query = `
-				SELECT ROUND(AVG(heart_rate), 2) AS average_heart_rate, SUM(calories_burned) AS total_calories_burned, SUM(time_spent_at_gym) AS total_time_spent_at_gym, COUNT(date) AS num_gym_sessions
-				FROM health_metrics
-				WHERE member_id = $1
-				GROUP BY member_id;
+				SELECT average_heart_rate, total_calories_burned, total_time_spent_at_gym, num_gym_sessions FROM health_statistics WHERE member_id = $1;
 			`;
 
 			const result = await this.client.query(query, [memberId]);
@@ -392,10 +387,7 @@ class Member {
 	async #fitnessAchievements(memberId) {
 		try {
 			const mainStatsQuery = `
-				SELECT SUM(calories_burned) AS total_calories_burned, SUM(time_spent_at_gym) AS total_time_spent_at_gym
-				FROM health_metrics
-				WHERE member_id = $1
-				GROUP BY member_id;
+				SELECT total_calories_burned, total_time_spent_at_gym FROM health_statistics WHERE member_id = $1;
 			`;
 
 			const mainStatsResult = await this.client.query(mainStatsQuery, [memberId]);
@@ -441,8 +433,7 @@ class Member {
 		try {
 			const personalSessionsQuery = `
 				SELECT routine FROM personal_session AS ps
-				JOIN personal_session_exercise_routine AS ps_er ON ps.id=ps_er.personal_session_id
-				JOIN exercise_routine AS er ON ps_er.exercise_routine_id=er.id
+				JOIN combined_routines_personal_session AS ps_er ON ps.id=ps_er.personal_session_id
 				WHERE member_id = $1;
 			`;
 			
@@ -450,8 +441,7 @@ class Member {
 				SELECT routine FROM group_session AS gs
 				JOIN member_group_session AS m_gs ON m_gs.group_session_id = gs.id
 				JOIN member AS m ON m_gs.member_id = m.id
-				JOIN group_session_exercise_routine AS gs_er ON gs.id=gs_er.group_session_id
-				JOIN exercise_routine AS er ON gs_er.exercise_routine_id=er.id
+				JOIN combined_routines_group_session AS gs_er ON gs.id=gs_er.group_session_id
 				WHERE member_id = $1;
 			`;
 
@@ -615,9 +605,8 @@ class Member {
   // Displays the exercise routines linked to a given personal session
   async #viewRoutinesOnPersonalSession(personalSessionId) {
     const query = `
-      SELECT er.id, er.routine FROM Personal_Session_Exercise_Routine AS ps_er
-      JOIN Exercise_Routine AS er ON er.id = ps_er.exercise_routine_id
-      WHERE ps_er.personal_session_id = $1;
+			SELECT id, routine FROM combined_routines_personal_session
+			WHERE personal_session_id = $1;
     `;
     const exerciseRoutinesOnPersonalSession = await this.client.query(query, [personalSessionId]);
     this.tableDisplay.printResultsAsTable(exerciseRoutinesOnPersonalSession, ['id', 'Routine']);
