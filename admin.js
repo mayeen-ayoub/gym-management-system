@@ -13,7 +13,27 @@ class Admin {
   }
 
   /* PUBLIC FUNCTIONS */
-  // TODO call this function from main
+  // Given an email and password, check if this user is an admin in the DB.
+  // Used by all other functions in this class to ensure admins are the only ones able to execute admin-related operations
+  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
+  async checkIfAdmin() {
+    try {
+      const email = prompt("Enter admin email: ");
+      const password = prompt("Enter password: ");
+      const dbPasswordResult = await this.client.query('SELECT id, password FROM Admin WHERE email = $1;', [email]);
+      const dbPassword = dbPasswordResult?.rows[0]?.password;
+
+      if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
+        console.log(`Incorrect user or password. Terminating...`);
+        return null;
+      }
+      return dbPasswordResult.rows[0].id;
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return null;
+    }
+  }
+
   // Calls the desired function related to room booking
   async manageRoomBookings() {
     console.log("What action would you like to take?");
@@ -36,31 +56,24 @@ class Admin {
       default:
         await this.#viewRoomBookings();
     }
-
   }
+
   // Given a date, start time and end time, attempts to add a record to the Room_Booking table
   async bookRoom(roomInfo = {}) {
     try {
       let override = Object.keys(roomInfo).length !== 0;
-      let adminId = null;
-      if (!override) {
-        adminId = await this.#checkIfAdmin();
-      }
-      if (override || adminId !== null) {
-        const roomNumber = prompt("Which room would you like to book? ");
-        const eventType = override ? "Group Session" : prompt("What kind of event are you booking the room for (group session, birthday party, etc.)? ");
-        const date = override ? roomInfo.date : prompt("What date are you booking the room for (yyyy-mm-dd)? ");
-        const startTime = override ? roomInfo.startTime : prompt("What time does the event start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
-        const endTime = override ? roomInfo.endTime : prompt("What time does the event end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+      const roomNumber = prompt("Which room would you like to book? ");
+      const eventType = override ? "Group Session" : prompt("What kind of event are you booking the room for (group session, birthday party, etc.)? ");
+      const date = override ? roomInfo.date : prompt("What date are you booking the room for (yyyy-mm-dd)? ");
+      const startTime = override ? roomInfo.startTime : prompt("What time does the event start (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
+      const endTime = override ? roomInfo.endTime : prompt("What time does the event end (eg. type 1:30 for 1:30am and 13:30 for 1:30pm)? ");
 
-        const insertQuery = `
-          INSERT INTO Room_Booking (room_number, event_type, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id;
-        `;
-        const roomBooked = await this.client.query(insertQuery, [roomNumber, eventType, date, startTime, endTime]);
-        console.log("The room booking has been saved.");
-        return roomBooked?.rows[0]?.id;
-      }
-      return null;
+      const insertQuery = `
+        INSERT INTO Room_Booking (room_number, event_type, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING id;
+      `;
+      const roomBooked = await this.client.query(insertQuery, [roomNumber, eventType, date, startTime, endTime]);
+      console.log("The room booking has been saved.");
+      return roomBooked?.rows[0]?.id;
     } catch(error) {
       console.log(`UNSUCCESSFUL: ${error.message}\n`);
       return null;
@@ -70,28 +83,26 @@ class Admin {
   // Calls the desired function related to equipment management
   async manageEquipment() {
     try {
-      const adminId = await this.#checkIfAdmin();
-      if (adminId !== null) {
-        console.log('How do you want modify the equipment?');
-        console.log('1. Add a new machine');
-        console.log('2. Update a current machine');
-        console.log('3. Delete a machine');
-        console.log('4. View machines');
-        const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
-        
-        switch (selection) {
-          case 1:
-            await this.#addEquipment();
-            break;
-          case 2:
-            await this.#updateEquipment();
-            break;
-          case 3:
-            await this.#deleteEquipment()
-            break;
-          default:
-            await this.#viewEquipment();
-        }
+      console.log('How do you want modify the equipment?');
+      console.log('1. Add a new machine');
+      console.log('2. Update a current machine');
+      console.log('3. Delete a machine');
+      console.log('4. View machines');
+      const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+      console.log();
+
+      switch (selection) {
+        case 1:
+          await this.#addEquipment();
+          break;
+        case 2:
+          await this.#updateEquipment();
+          break;
+        case 3:
+          await this.#deleteEquipment()
+          break;
+        default:
+          await this.#viewEquipment();
       }
     } catch(error) {
       console.log(`ERROR: ${error.message}\n`);
@@ -101,10 +112,6 @@ class Admin {
 
   // Calls the desired function related to group session management
   async scheduleGroupSession() {
-    const adminId = await this.#checkIfAdmin();
-    if (adminId === null) { 
-      return;
-    }
     console.log("How do you want to manage the group session?");
     console.log("1. Add a group session");
     console.log("2. Update a group session");
@@ -125,54 +132,29 @@ class Admin {
 
   // Calls the desired function related to bill management
   async manageBilling() {
-    const adminId = await this.#checkIfAdmin();
-    if (adminId !== null) {
-      console.log('How do you want modify the invoices?');
-      console.log('1. Add a new invoice');
-      console.log('2. Update a current invoice');
-      console.log('3. Delete an invoice');
-      console.log('4. View invoices');
-      const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+    console.log('How do you want modify the invoices?');
+    console.log('1. Add a new invoice');
+    console.log('2. Update a current invoice');
+    console.log('3. Delete an invoice');
+    console.log('4. View invoices');
+    const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
 
-      switch (selection) {
-        case 1:
-          await this.#addNewBill();
-          break;
-        case 2:
-          await this.#updateBill();
-          break;
-        case 3:
-          await this.#deleteBill();
-          break;
-        default:
-          await this.#viewBills();
-      }
+    switch (selection) {
+      case 1:
+        await this.#addNewBill();
+        break;
+      case 2:
+        await this.#updateBill();
+        break;
+      case 3:
+        await this.#deleteBill();
+        break;
+      default:
+        await this.#viewBills();
     }
   }
 
   /* PRIVATE FUNCTIONS */
-
-  // Given an email and password, check if this user is an admin in the DB.
-  // Used by all other functions in this class to ensure admins are the only ones able to execute admin-related operations
-  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
-  async #checkIfAdmin() {
-    try {
-      const email = prompt("Enter admin email: ");
-      const password = prompt("Enter password: ");
-      const dbPasswordResult = await this.client.query('SELECT id, password FROM Admin WHERE email = $1;', [email]);
-      const dbPassword = dbPasswordResult?.rows[0]?.password;
-
-      if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
-        console.log(`Incorrect user or password. Terminating...`);
-        return null;
-      }
-      return dbPasswordResult.rows[0].id;
-    } catch(error) {
-      console.log(`ERROR: ${error.message}\n`);
-      return null;
-    }
-  }
-
   // Updates an existing Room_booking record based on user input
   async #updateRoomBooking() {
     try {
@@ -304,8 +286,9 @@ class Admin {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+      console.log();
 
-      console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      console.log(chalk.yellow('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
       const needsMaintenanceInput = prompt("Does the machine need maintenance? Y/N: ").toLowerCase();
       let needsMaintenance;
       if (needsMaintenanceInput === "y") {
@@ -346,6 +329,7 @@ class Admin {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+      console.log();
 
       const deleteQuery = `
         DELETE FROM Equipment
@@ -425,8 +409,9 @@ class Admin {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+      console.log();
 
-      console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      console.log(chalk.yellow('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
       let date = prompt('Enter the new date (yyyy-mm-dd): ');
       let startTime = prompt('Enter the new start time (eg. type 1:30 for 1:30am and 13:30 for 1:30pm): ');
       let endTime = prompt('Enter the new end time (eg. type 1:30 for 1:30am and 13:30 for 1:30pm): ');
@@ -610,6 +595,7 @@ class Admin {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+      console.log();
 
       let memberIdSelection;
       const isUpdatingMemberId = prompt("Would you like to update the member id of this invoice? Y/N: ").toLowerCase();
@@ -620,8 +606,9 @@ class Admin {
           return;
         }
       }
+      console.log();
 
-      console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      console.log(chalk.yellow('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
       let amount = parseFloat(prompt('Please type the amount of the invoice: ')).toFixed(2);
       let feeType = prompt('Please enter the type of fee (ex. membership fee, group session fee, etc.): ');
       let invoiceDate = prompt('Please enter the date of the invoice (yyyy-mm-dd): ');
@@ -664,6 +651,7 @@ class Admin {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+      console.log();
 
       const deleteQuery = `
         DELETE FROM Bill

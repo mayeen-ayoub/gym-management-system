@@ -2,6 +2,7 @@
 
 const prompt = require('prompt-sync')();
 const TableDisplay = require('./tableDisplay.js');
+const chalk = require('chalk');
 
 class Trainer {	
   constructor(client) {
@@ -10,49 +11,66 @@ class Trainer {
   }
 
   /* PUBLIC FUNCTIONS */
-  // Calls the desired function related to availability management
-  async scheduleManagement() {
-    const trainerId = await this.#checkIfTrainer();
-    if (trainerId !== null) {
-      console.log('How do you want modify your availabilities?');
-      console.log('1. Add a new availability');
-      console.log('2. Update a current availability');
-      console.log('3. Delete an availability');
-      console.log('4. View availabilities');
-      const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+	// Given an email and password, check if this user is an trainer in the DB.
+  // Used by all other functions in this class to ensure trainers are the only ones able to execute trainer-related operations
+  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
+	async checkIfTrainer() {
+    try {
+      const email = prompt("Enter trainer email: ");
+      const password = prompt("Enter password: ");
+      const dbPasswordResult = await this.client.query('SELECT id, password FROM Trainer WHERE email = $1;', [email]);
+      const dbPassword = dbPasswordResult?.rows[0]?.password;
       
-      switch (selection) {
-        case 1:
-          await this.#addNewAvailability(trainerId);
-          break;
-        case 2:
-          await this.#updateAvailability(trainerId);
-          break;
-        case 3:
-          await this.#deleteAvailability(trainerId)
-          break;
-        default:
-          await this.#viewAvailabilities(trainerId);
+      if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
+        console.log(`Incorrect user or password. Terminating...`);
+        return null;
       }
+      return dbPasswordResult.rows[0].id;
+    } catch(error) {
+      console.log(`ERROR: ${error.message}\n`);
+      return null;
     }
   }
 
-  // Given first and last names, searches the DB for a member that matches this inputs
+	// Calls the desired function related to availability management
+  async scheduleManagement(trainerId) {
+		console.log('How do you want modify your availabilities?');
+		console.log('1. Add a new availability');
+		console.log('2. Update a current availability');
+		console.log('3. Delete an availability');
+		console.log('4. View availabilities');
+		const selection = parseInt(prompt('Type the corresponding number to make a selection: '));
+		console.log();
+
+		switch (selection) {
+			case 1:
+				await this.#addNewAvailability(trainerId);
+				break;
+			case 2:
+				await this.#updateAvailability(trainerId);
+				break;
+			case 3:
+				await this.#deleteAvailability(trainerId)
+				break;
+			default:
+				await this.#viewAvailabilities(trainerId);
+		}
+  }
+
+	// Given first and last names, searches the DB for a member that matches this inputs
   async viewMemberProfile() {
     try {
-      if (await this.#checkIfTrainer() !== null) {
-        const firstName = prompt("What is the first name of the member? ");
-        const lastName = prompt("What is the last name of the member? ");
-        const query = 'SELECT id, first_name, last_name, email, phone_number, join_date FROM Member WHERE first_name = $1 AND last_name = $2;';
-        const result = await this.client.query(query, [firstName, lastName]);
-        
-        if (result.rowCount === 0) {
-          console.log("There are no members with that name");
-          return;
-        }
-        const headers = ['id', 'First Name', 'Last Name', 'Email', 'Phone Number', 'Join Date'];
-        this.tableDisplay.printResultsAsTable(result, headers, true, 'join_date');
-      }
+			const firstName = prompt("What is the first name of the member? ");
+			const lastName = prompt("What is the last name of the member? ");
+			const query = 'SELECT id, first_name, last_name, email, phone_number, join_date FROM Member WHERE first_name = $1 AND last_name = $2;';
+			const result = await this.client.query(query, [firstName, lastName]);
+			
+			if (result.rowCount === 0) {
+				console.log("There are no members with that name");
+				return;
+			}
+			const headers = ['id', 'First Name', 'Last Name', 'Email', 'Phone Number', 'Join Date'];
+			this.tableDisplay.printResultsAsTable(result, headers, true, ['join_date']);
     } catch(error) {
       console.log(`ERROR: ${error.message}\n`);
       return;
@@ -125,28 +143,7 @@ class Trainer {
   }
 
   /* PRIVATE FUNCTIONS */
-  // Given an email and password, check if this user is an trainer in the DB.
-  // Used by all other functions in this class to ensure trainers are the only ones able to execute trainer-related operations
-  // Note: We understand that this method of storing passwords is not the most secure. We'd use a different approach if this were a larger scale app
-  async #checkIfTrainer() {
-    try {
-      const email = prompt("Enter trainer email: ");
-      const password = prompt("Enter password: ");
-      const dbPasswordResult = await this.client.query('SELECT id, password FROM Trainer WHERE email = $1;', [email]);
-      const dbPassword = dbPasswordResult?.rows[0]?.password;
-      
-      if (dbPasswordResult?.rowCount === 0 || password !== dbPassword) {
-        console.log(`Incorrect user or password. Terminating...`);
-        return null;
-      }
-      return dbPasswordResult.rows[0].id;
-    } catch(error) {
-      console.log(`ERROR: ${error.message}\n`);
-      return null;
-    }
-  }
-
-  // Adds a record to the Availability table based on user input
+	// Adds a record to the Availability table based on user input
   async #insertAvailability(trainerId, weekday) {
     const startTime = prompt('When can you start? (eg. type 1:30 for 1:30am and 13:30 for 1:30pm) ');
     const endTime = prompt('What hour can you end? (eg. type 1:30 for 1:30am and 13:30 for 1:30pm) ');
@@ -191,8 +188,9 @@ class Trainer {
         console.log("No valid id was entered. Terminating request...");
         return;
       }
+			console.log();
       
-      console.log('***Make any changes when prompted. If nothing is entered, nothing will change for that field.');
+      console.log(chalk.green('Make any changes when prompted. If nothing is entered, nothing will change for that field.'));
       let weekDay = prompt("What day of the week should this be changed to? No shorthands (eg. Monday instead of Mon) ").toLowerCase();
       let startTime = prompt("When do you want to start your shift? (eg. 1:00 for 1am, 13:00 for 1pm) ");
       let endTime = prompt("When do you want to end your shift? (eg. 1:00 for 1am, 13:00 for 1pm) ");
@@ -225,6 +223,7 @@ class Trainer {
       await this.#viewAvailabilities(trainerId);
       
       const idSelection = parseInt(prompt('Please type the id of the availibility you want to delete: '));
+			console.log();
 
       const deleteQuery = `
         DELETE FROM availability
@@ -232,7 +231,7 @@ class Trainer {
       `;
 
       await this.client.query(deleteQuery, [idSelection]);
-
+			console.log("Availability successfully deleted");
     } catch(error) {
       console.log(`ERROR: ${error.message}\n`);
       return;
