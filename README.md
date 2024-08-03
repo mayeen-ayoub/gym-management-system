@@ -1,4 +1,4 @@
-# COMP 3005: Final Project
+# Health and Fitness Club Management System
 
 This repository contains the implementation of a Health and Fitness Club Management System. It contains functionality for three kinds of users: Members, Trainers and Administrative staff.
 
@@ -28,5 +28,5 @@ This repository contains the implementation of a Health and Fitness Club Managem
 
 ### Demo Video: 
 The demo video can be found [here](https://youtu.be/620awISqDG0).
-- Note: Since there was no explicit requirement to show the operations happening simultaneously in pgAdmin, we’ve decided to spend the demo time focusing on the console application. That said, every operation has an underlying SQL component - for example, the view functions are essentially `SELECT` statements that return all the related records in a given table.
+<!-- - Note: Since there was no explicit requirement to show the operations happening simultaneously in pgAdmin, we’ve decided to spend the demo time focusing on the console application. That said, every operation has an underlying SQL component - for example, the view functions are essentially `SELECT` statements that return all the related records in a given table. -->
 
